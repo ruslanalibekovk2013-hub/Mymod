@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "mackros",
+  "version": "${version}",
+  "name": "Mackros",
+  "description": "Редактор построек: выделение, копирование, перенос, фигуры, симметрия, предпросмотр, меню.",
+  "authors": ["Mackros"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": { "client": ["com.mackros.MackrosClient"] },
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "minecraft": "~1.20.4",
+    "java": ">=17",
+    "fabric-api": "*"
+  }
+}
