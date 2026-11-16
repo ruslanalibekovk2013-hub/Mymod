@@ -24,5 +24,9 @@
   "key.mackros.line": "Линия между точками",
   "key.mackros.smooth": "Сгладить рельеф",
   "key.mackros.palette": "Случайная заливка (хотбар)",
-  "key.mackros.gradient": "Градиент по высоте (хотбар)"
+  "key.mackros.gradient": "Градиент по высоте (хотбар)",
+  "key.mackros.lock": "Закрепить размещение",
+  "key.mackros.layerup": "Слой вверх",
+  "key.mackros.layerdown": "Слой вниз",
+  "key.mackros.flood": "Заливка области"
 }

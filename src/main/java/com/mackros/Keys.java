@@ -35,6 +35,10 @@ public final class Keys {
         reg("sphere", GLFW.GLFW_KEY_H);
         reg("sym", GLFW.GLFW_KEY_Y);
         reg("line", GLFW.GLFW_KEY_L);
+        reg("lock", GLFW.GLFW_KEY_BACKSLASH);
+        reg("layerup", GLFW.GLFW_KEY_PERIOD);
+        reg("layerdown", GLFW.GLFW_KEY_COMMA);
+        reg("flood", GLFW.GLFW_KEY_APOSTROPHE);
         reg("smooth", GLFW.GLFW_KEY_M);
         reg("palette", GLFW.GLFW_KEY_O);
         reg("gradient", GLFW.GLFW_KEY_SEMICOLON);
@@ -49,6 +53,7 @@ public final class Keys {
     public static void tick(MinecraftClient mc) {
         if (mc.player == null || mc.world == null) return;
         Editor.tickQueue(mc);
+        Editor.tickVerify(mc);
         for (Map.Entry<String, KeyBinding> e : K.entrySet()) {
             while (e.getValue().wasPressed()) run(mc, e.getKey());
         }
@@ -73,6 +78,10 @@ public final class Keys {
             case "sphere" -> Editor.sphere(mc, false);
             case "sym" -> Editor.cycleSym(mc);
             case "line" -> Editor.line(mc);
+            case "lock" -> Editor.lockPlacement(mc);
+            case "layerup" -> Editor.layerStep(1);
+            case "layerdown" -> Editor.layerStep(-1);
+            case "flood" -> Editor.floodFill(mc);
             case "smooth" -> Editor.smooth(mc, 1);
             case "palette" -> Editor.paletteFill(mc, false);
             case "gradient" -> Editor.paletteFill(mc, true);

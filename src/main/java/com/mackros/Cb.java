@@ -128,9 +128,71 @@ public final class Cb {
                 add(l, "particle minecraft:end_rod ~ ~1 ~ 0.3 1.5 0.3 0.02 4");
             }
             case "magnet" -> l.add(rep("execute as @e[type=minecraft:item,distance=..12] at @s run tp @s @p"));
+            case "bounce" -> {
+                l.add(rep("effect give @a[distance=..1.6] minecraft:levitation 1 5 true"));
+                add(l, "particle minecraft:cloud ~ ~0.3 ~ 0.4 0.1 0.4 0.02 3");
+            }
+            case "speed" -> {
+                l.add(rep("effect give @a[distance=..2] minecraft:speed 2 6 true"));
+                add(l, "particle minecraft:flame ~ ~0.3 ~ 0.4 0.1 0.4 0.02 3");
+            }
+            case "mine" -> l.add(rep("execute if entity @a[distance=..1.2] unless entity @e[type=minecraft:tnt,distance=..4] run summon minecraft:tnt ~ ~ ~ {Fuse:30s}"));
+            case "dice" -> {
+                l.add(rep("scoreboard players enable @a mk_roll"));
+                add(l, "execute as @a[scores={mk_roll=1..}] run random roll 1..6");
+                add(l, "scoreboard players set @a[scores={mk_roll=1..}] mk_roll 0");
+            }
+            case "clock" -> {
+                l.add(rep("execute store result score #t clk_t run time query daytime"));
+                add(l, "scoreboard players operation #h clk_t = #t clk_t");
+                add(l, "scoreboard players operation #h clk_t /= #1000 clk_t");
+                add(l, "scoreboard players operation #h clk_t += #6 clk_t");
+                add(l, "scoreboard players operation #h clk_t %= #24 clk_t");
+                add(l, "scoreboard players operation #m clk_t = #t clk_t");
+                add(l, "scoreboard players operation #m clk_t %= #1000 clk_t");
+                add(l, "scoreboard players operation #m clk_t *= #60 clk_t");
+                add(l, "scoreboard players operation #m clk_t /= #1000 clk_t");
+                add(l, "execute if score #m clk_t matches 0..9 run title @a actionbar [{'text':'Время ','color':'gold'},{'score':{'name':'#h','objective':'clk_t'},'color':'yellow'},{'text':':0','color':'yellow'},{'score':{'name':'#m','objective':'clk_t'},'color':'yellow'}]");
+                add(l, "execute if score #m clk_t matches 10.. run title @a actionbar [{'text':'Время ','color':'gold'},{'score':{'name':'#h','objective':'clk_t'},'color':'yellow'},{'text':':','color':'yellow'},{'score':{'name':'#m','objective':'clk_t'},'color':'yellow'}]");
+            }
+            case "calc" -> {
+                l.add(rep("scoreboard players enable @a calc_a"));
+                add(l, "scoreboard players enable @a calc_b");
+                add(l, "scoreboard players enable @a calc_op");
+                add(l, "scoreboard players enable @a calc_go");
+                add(l, "execute as @a[scores={calc_go=1..}] run scoreboard players operation @s calc_r = @s calc_a");
+                add(l, "execute as @a[scores={calc_go=1..,calc_op=1}] run scoreboard players operation @s calc_r += @s calc_b");
+                add(l, "execute as @a[scores={calc_go=1..,calc_op=2}] run scoreboard players operation @s calc_r -= @s calc_b");
+                add(l, "execute as @a[scores={calc_go=1..,calc_op=3}] run scoreboard players operation @s calc_r *= @s calc_b");
+                add(l, "execute as @a[scores={calc_go=1..,calc_op=4}] run scoreboard players operation @s calc_r /= @s calc_b");
+                add(l, "execute as @a[scores={calc_go=1..,calc_op=5}] run scoreboard players operation @s calc_r %= @s calc_b");
+                add(l, "execute as @a[scores={calc_go=1..}] run tellraw @s [{'text':'[Калькулятор] ','color':'aqua'},{'score':{'name':'@s','objective':'calc_a'}},{'text':' (оп ','color':'gray'},{'score':{'name':'@s','objective':'calc_op'}},{'text':') ','color':'gray'},{'score':{'name':'@s','objective':'calc_b'}},{'text':' = ','color':'yellow'},{'score':{'name':'@s','objective':'calc_r'},'color':'green','bold':true}]");
+                add(l, "scoreboard players set @a[scores={calc_go=1..}] calc_go 0");
+            }
             default -> { }
         }
         return l;
+    }
+
+    private static String[] setupFor(String kind) {
+        return switch (kind) {
+            case "calc" -> new String[]{"scoreboard objectives add calc_a trigger", "scoreboard objectives add calc_b trigger",
+                    "scoreboard objectives add calc_op trigger", "scoreboard objectives add calc_go trigger", "scoreboard objectives add calc_r dummy"};
+            case "clock" -> new String[]{"scoreboard objectives add clk_t dummy", "scoreboard players set #1000 clk_t 1000",
+                    "scoreboard players set #60 clk_t 60", "scoreboard players set #24 clk_t 24", "scoreboard players set #6 clk_t 6"};
+            case "dice" -> new String[]{"scoreboard objectives add mk_roll trigger"};
+            default -> new String[0];
+        };
+    }
+
+    private static String helpFor(String kind) {
+        return switch (kind) {
+            case "calc" -> "Калькулятор: /trigger calc_a set 12, /trigger calc_op set 1 (1 плюс, 2 минус, 3 умножить, 4 делить, 5 остаток), /trigger calc_b set 5, затем /trigger calc_go";
+            case "dice" -> "Кубик: команда /trigger mk_roll";
+            case "clock" -> "Часы показывают время в панели действий над хотбаром";
+            case "mine" -> "Мина: взрывается под игроком, строй осторожно";
+            default -> "";
+        };
     }
 
     // ---------- публичное API ----------
@@ -140,7 +202,10 @@ public final class Cb {
     }
 
     public static void buildUtil(MinecraftClient mc, String kind, String title) {
+        for (String st : setupFor(kind)) Editor.cmd(mc, st);
         build(mc, util(kind), title);
+        String h = helpFor(kind);
+        if (!h.isEmpty()) Editor.say(h);
     }
 
     private static void build(MinecraftClient mc, List<Spec> specs, String title) {

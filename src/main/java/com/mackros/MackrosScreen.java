@@ -15,7 +15,7 @@ import java.util.List;
 public class MackrosScreen extends Screen {
     private record Act(String name, String tip, Runnable run, boolean keep) {}
 
-    private static final String[] CATS = {"Выделение", "Буфер", "Фигуры", "Рисование", "КБ оружие", "КБ блоки", "Мир", "Игрок", "Файлы"};
+    private static final String[] CATS = {"Выделение", "Буфер", "Фигуры", "Рисование", "Схемы", "КБ оружие", "КБ блоки", "Мир", "Игрок", "Файлы", "Настройки"};
     private static int cat = 0, page = 0;
     private static final int PER = 18;
     private int px, py;
@@ -30,7 +30,7 @@ public class MackrosScreen extends Screen {
             final int idx = i;
             Text t = Text.literal(CATS[i]).formatted(cat == i ? Formatting.AQUA : Formatting.WHITE);
             addDrawableChild(ButtonWidget.builder(t, b -> { cat = idx; page = 0; clearAndInit(); })
-                    .dimensions(px + 4, py + i * 19, 84, 17).build());
+                    .dimensions(px + 4, py + i * 17, 84, 15).build());
         }
         List<Act> acts = actions();
         final int pages = Math.max(1, (acts.size() + PER - 1) / PER);
@@ -56,6 +56,7 @@ public class MackrosScreen extends Screen {
 
     private static void add(List<Act> l, String n, String tip, Runnable r) { l.add(new Act(n, tip, r, false)); }
     private static void keep(List<Act> l, String n, String tip, Runnable r) { l.add(new Act(n, tip, r, true)); }
+    private static String onoff(boolean b) { return b ? "вкл" : "выкл"; }
 
     private List<Act> actions() {
         MinecraftClient mc = MinecraftClient.getInstance();
@@ -63,45 +64,48 @@ public class MackrosScreen extends Screen {
         final int s = Editor.step;
         switch (cat) {
             case 0 -> {
-                add(l, "Точка 1", "Угол выделения (клавиша Z)", () -> Editor.setPos(mc, 1));
+                add(l, "Точка 1", "Угол выделения (Z)", () -> Editor.setPos(mc, 1));
                 add(l, "Точка 2", "Противоположный угол (X)", () -> Editor.setPos(mc, 2));
                 add(l, "Сброс", "", Editor::resetSel);
                 add(l, "Заполнить", "Блоком из руки (J)", () -> Editor.fill(mc, Editor.held(mc)));
                 add(l, "Полый бокс", "Только стенки", () -> Editor.hollow(mc, Editor.held(mc)));
+                add(l, "Рамка", "Только рёбра", () -> Editor.frame(mc));
                 add(l, "Замена", "Блок в прицеле заменить блоком из руки", () -> Editor.replace(mc));
-                add(l, "Очистить", "Заполнить воздухом (K)", () -> Editor.fill(mc, Blocks.AIR.getDefaultState()));
+                add(l, "Очистить", "Воздухом (K)", () -> Editor.fill(mc, Blocks.AIR.getDefaultState()));
                 add(l, "Стек x" + Editor.stackN, "Повторить выделение вперёд", () -> Editor.stack(mc));
                 keep(l, "Стек n: " + Editor.stackN, "Сколько повторов", () -> Editor.stackN = Editor.stackN >= 20 ? 1 : Editor.stackN + 1);
-                keep(l, "Шаг: " + s, "Шаг сдвигов", () -> Editor.step = s == 1 ? 2 : s == 2 ? 5 : s == 5 ? 10 : s == 10 ? 50 : 1);
-                keep(l, "Симм X: " + (Editor.symX ? "вкл" : "выкл"), "Зеркалить все правки по X", () -> Editor.toggleSymAxis(mc, true));
-                keep(l, "Симм Z: " + (Editor.symZ ? "вкл" : "выкл"), "Зеркалить все правки по Z", () -> Editor.toggleSymAxis(mc, false));
+                keep(l, "Шаг: " + s, "Шаг сдвигов", () -> { Editor.step = s == 1 ? 2 : s == 2 ? 5 : s == 5 ? 10 : s == 10 ? 50 : 1; Config.save(); });
+                keep(l, "Симм X: " + onoff(Editor.symX), "Зеркалить правки по X", () -> Editor.toggleSymAxis(mc, true));
+                keep(l, "Симм Z: " + onoff(Editor.symZ), "Зеркалить правки по Z", () -> Editor.toggleSymAxis(mc, false));
                 keep(l, "Сдвиг +X", "Перенести постройку", () -> Editor.moveSel(mc, s, 0, 0));
                 keep(l, "Сдвиг -X", "", () -> Editor.moveSel(mc, -s, 0, 0));
                 keep(l, "Сдвиг +Y", "", () -> Editor.moveSel(mc, 0, s, 0));
                 keep(l, "Сдвиг -Y", "", () -> Editor.moveSel(mc, 0, -s, 0));
                 keep(l, "Сдвиг +Z", "", () -> Editor.moveSel(mc, 0, 0, s));
                 keep(l, "Сдвиг -Z", "", () -> Editor.moveSel(mc, 0, 0, -s));
-                keep(l, "Поворот выд.", "Повернуть постройку на месте на 90°", () -> Editor.transformSel(mc, 0));
-                keep(l, "Отраж. выд. X", "Отразить постройку на месте", () -> Editor.transformSel(mc, 1));
+                keep(l, "Поворот выд.", "Повернуть постройку на месте", () -> Editor.transformSel(mc, 0));
+                keep(l, "Отраж. выд. X", "", () -> Editor.transformSel(mc, 1));
                 keep(l, "Отраж. выд. Z", "", () -> Editor.transformSel(mc, 2));
-                keep(l, "Шире вперёд", "Расширить выделение на шаг", () -> Editor.expand(mc, 0, s));
+                keep(l, "Шире вперёд", "Расширить на шаг", () -> Editor.expand(mc, 0, s));
                 keep(l, "Шире назад", "", () -> Editor.expand(mc, 3, s));
                 keep(l, "Шире вверх", "", () -> Editor.expand(mc, 1, s));
                 keep(l, "Шире вниз", "", () -> Editor.expand(mc, 2, s));
-                keep(l, "Уже вперёд", "Сузить выделение на шаг", () -> Editor.expand(mc, 0, -s));
+                keep(l, "Уже вперёд", "Сузить на шаг", () -> Editor.expand(mc, 0, -s));
                 keep(l, "Уже сверху", "", () -> Editor.expand(mc, 1, -s));
+                keep(l, "Обл. сохр. " + Editor.slot, "Сохранить выделение в слот (слот меняется во вкладке Файлы)", () -> Editor.saveArea(mc));
+                keep(l, "Обл. загр. " + Editor.slot, "", () -> Editor.loadArea(mc));
             }
             case 1 -> {
                 add(l, "Копировать", "Выделение в буфер (B)", () -> Editor.copy(mc));
                 add(l, "Вырезать", "(N)", () -> Editor.cut(mc));
-                add(l, "Вставить", "В место прицела (V)", () -> Editor.paste(mc));
+                add(l, "Вставить", "В прицел или в закреплённое место (V)", () -> Editor.paste(mc));
                 keep(l, "Поворот 90°", "Повернуть буфер (R)", Editor::rotate);
                 keep(l, "Отразить X", "(G)", () -> Editor.flip(true));
                 keep(l, "Отразить Z", "", () -> Editor.flip(false));
-                keep(l, "Просмотр: " + (Editor.preview ? "вкл" : "выкл"), "Контур вставки (P)", Editor::togglePreview);
-                keep(l, "Воздух: " + (Editor.pasteAir ? "да" : "нет"), "Вставлять воздух (затирает блоки)", () -> Editor.pasteAir = !Editor.pasteAir);
+                keep(l, "Просмотр: " + onoff(Editor.preview), "Контур вставки (P)", () -> { Editor.togglePreview(); Config.save(); });
+                keep(l, "Воздух: " + (Editor.pasteAir ? "да" : "нет"), "Вставлять воздух (затирает блоки)", () -> { Editor.pasteAir = !Editor.pasteAir; Config.save(); });
                 keep(l, "Сброс смещ.", "", Editor::resetNudge);
-                keep(l, "Смещ. +X", "Двигать место вставки (стрелки)", () -> Editor.nudge(s, 0, 0));
+                keep(l, "Смещ. +X", "Стрелки: двигать место вставки", () -> Editor.nudge(s, 0, 0));
                 keep(l, "Смещ. -X", "", () -> Editor.nudge(-s, 0, 0));
                 keep(l, "Смещ. +Y", "", () -> Editor.nudge(0, s, 0));
                 keep(l, "Смещ. -Y", "", () -> Editor.nudge(0, -s, 0));
@@ -111,17 +115,23 @@ public class MackrosScreen extends Screen {
                 keep(l, "Повтор", "(I)", () -> Editor.redo(mc));
             }
             case 2 -> {
-                add(l, "Сфера", "Блок из руки, центр в прицеле (H)", () -> Editor.sphere(mc, false));
+                add(l, "Сфера", "Центр в прицеле (H)", () -> Editor.sphere(mc, false));
                 add(l, "Полая сфера", "", () -> Editor.sphere(mc, true));
                 add(l, "Цилиндр", "", () -> Editor.cylinder(mc));
                 add(l, "Купол", "Верхняя половина сферы", () -> Editor.dome(mc, false));
                 add(l, "Полый купол", "", () -> Editor.dome(mc, true));
-                keep(l, "Радиус: " + Editor.radius, "", () -> Editor.radius = Editor.radius >= 64 ? 1 : Editor.radius + 1);
-                keep(l, "Радиус -", "", () -> Editor.radius = Math.max(1, Editor.radius - 1));
-                keep(l, "Радиус +5", "", () -> Editor.radius = Math.min(64, Editor.radius + 5));
-                keep(l, "Высота: " + Editor.height, "Для цилиндра", () -> Editor.height = Editor.height >= 100 ? 1 : Editor.height + 1);
-                keep(l, "Высота -", "", () -> Editor.height = Math.max(1, Editor.height - 1));
-                keep(l, "Высота +10", "", () -> Editor.height = Math.min(100, Editor.height + 10));
+                add(l, "Пирамида", "Основание радиуса R", () -> Editor.pyramid(mc));
+                add(l, "Тор", "Бублик", () -> Editor.torus(mc));
+                add(l, "Башня", "Полый цилиндр", () -> Editor.tower(mc));
+                add(l, "Дом", "7x5x7 из блока в руке, с дверью и окнами", () -> Editor.house(mc));
+                add(l, "Мост", "Между точками 1 и 2, шириной 3", () -> Editor.bridge(mc));
+                add(l, "Заливка", "Залить связную область блоков (')", () -> Editor.floodFill(mc));
+                keep(l, "Радиус: " + Editor.radius, "", () -> { Editor.radius = Editor.radius >= 64 ? 1 : Editor.radius + 1; Config.save(); });
+                keep(l, "Радиус -", "", () -> { Editor.radius = Math.max(1, Editor.radius - 1); Config.save(); });
+                keep(l, "Радиус +5", "", () -> { Editor.radius = Math.min(64, Editor.radius + 5); Config.save(); });
+                keep(l, "Высота: " + Editor.height, "Цилиндр и башня", () -> { Editor.height = Editor.height >= 100 ? 1 : Editor.height + 1; Config.save(); });
+                keep(l, "Высота -", "", () -> { Editor.height = Math.max(1, Editor.height - 1); Config.save(); });
+                keep(l, "Высота +10", "", () -> { Editor.height = Math.min(100, Editor.height + 10); Config.save(); });
             }
             case 3 -> {
                 add(l, "Линия", "Между точками 1 и 2 (L)", () -> Editor.line(mc));
@@ -129,12 +139,27 @@ public class MackrosScreen extends Screen {
                 add(l, "Полый элл.", "", () -> Editor.ellipsoid(mc, true, false));
                 add(l, "Купол выд.", "Купол по размерам выделения", () -> Editor.ellipsoid(mc, false, true));
                 add(l, "Случайно", "Рандом из блоков хотбара (O)", () -> Editor.paletteFill(mc, false));
-                add(l, "Градиент", "Слои по высоте из хотбара", () -> Editor.paletteFill(mc, true));
+                add(l, "Градиент", "Слои по высоте из хотбара (;)", () -> Editor.paletteFill(mc, true));
                 add(l, "Замена палитрой", "Блок в прицеле -> рандом из хотбара", () -> Editor.paletteReplace(mc));
-                add(l, "Сгладить", "Смягчить рельеф в выделении (M)", () -> Editor.smooth(mc, 1));
+                add(l, "Сгладить", "Смягчить рельеф (M)", () -> Editor.smooth(mc, 1));
                 add(l, "Сгладить x3", "", () -> Editor.smooth(mc, 3));
             }
             case 4 -> {
+                keep(l, Editor.lock == null ? "Закрепить" : "Снять замок", "Зафиксировать место схемы как в Litematica (\\)", () -> Editor.lockPlacement(mc));
+                keep(l, "Проверка: " + onoff(Editor.verify), "Подсвечивать ошибки постройки относительно схемы", Editor::toggleVerify);
+                keep(l, "Отчёт", "Сколько блоков верно и сколько ошибок", () -> Editor.verifyReport(mc));
+                keep(l, "Материалы", "Сколько блоков нужно и сколько есть", () -> mc.setScreen(new MaterialsScreen()));
+                keep(l, "Слои: " + (Editor.layerMode == 0 ? "все" : Editor.layerMode == 1 ? "один" : "до N"), "Показывать и вставлять по слоям", Editor::cycleLayerMode);
+                keep(l, "Слой +", "(.)", () -> Editor.layerStep(1));
+                keep(l, "Слой -", "(,)", () -> Editor.layerStep(-1));
+                keep(l, "Слой: " + Editor.layer, "Сбросить на 0", () -> { Editor.layer = 0; });
+                add(l, "Вставить", "Вставляет только выбранные слои", () -> Editor.paste(mc));
+                keep(l, "Масштаб x2", "Увеличить схему в 2 раза", () -> Editor.scaleClip(2));
+                keep(l, "Масштаб x3", "", () -> Editor.scaleClip(3));
+                keep(l, "Без воздуха", "Обрезать пустоту в буфере", Editor::trimAir);
+                keep(l, "Очист. буфер", "", Editor::clearClip);
+            }
+            case 5 -> {
                 add(l, "Построить ядро", "Ряд КБ вдоль +X от прицела. Нужны читы, одиночная игра", () -> Cb.buildEngine(mc));
                 add(l, "Выдать всё", "Все 5 посохов", () -> Cb.giveAll(mc));
                 add(l, "Удалить КБ", "Убрать последнюю постройку", () -> Cb.removeLast(mc));
@@ -145,16 +170,31 @@ public class MackrosScreen extends Screen {
                 add(l, "Заморозка", "ПКМ: замедление мобов", () -> Cb.give(mc, "mkf"));
                 add(l, "Сброс снарядов", "Убрать порталы и снаряды", () -> Cb.clearShots(mc));
             }
-            case 5 -> {
+            case 6 -> {
+                add(l, "Калькулятор", "Работает через /trigger, подсказка придёт в чат", () -> Cb.buildUtil(mc, "calc", "Калькулятор"));
+                add(l, "Часы", "Время суток над хотбаром", () -> Cb.buildUtil(mc, "clock", "Часы"));
+                add(l, "Кубик", "/trigger mk_roll", () -> Cb.buildUtil(mc, "dice", "Кубик"));
                 add(l, "Зона лечения", "Регенерация в радиусе 8", () -> Cb.buildUtil(mc, "heal", "Зона лечения"));
                 add(l, "Турель", "Бьёт врагов в радиусе 12", () -> Cb.buildUtil(mc, "turret", "Турель"));
                 add(l, "Авто-день", "Всегда день", () -> Cb.buildUtil(mc, "day", "Авто-день"));
                 add(l, "Лифт", "Поднимает игроков рядом", () -> Cb.buildUtil(mc, "lift", "Лифт"));
                 add(l, "Магнит", "Притягивает предметы", () -> Cb.buildUtil(mc, "magnet", "Магнит"));
+                add(l, "Подброс", "Подбрасывает вверх", () -> Cb.buildUtil(mc, "bounce", "Подброс"));
+                add(l, "Ускорение", "Скорость рядом", () -> Cb.buildUtil(mc, "speed", "Ускорение"));
+                add(l, "Мина", "Взрыв под игроком, осторожно", () -> Cb.buildUtil(mc, "mine", "Мина"));
+                add(l, "Табло смертей", "", () -> {
+                    Editor.cmd(mc, "scoreboard objectives add mk_deaths deathCount");
+                    Editor.cmd(mc, "scoreboard objectives setdisplay sidebar mk_deaths");
+                });
+                add(l, "Табло убийств", "", () -> {
+                    Editor.cmd(mc, "scoreboard objectives add mk_kills totalKillCount");
+                    Editor.cmd(mc, "scoreboard objectives setdisplay sidebar mk_kills");
+                });
+                add(l, "Убрать табло", "", () -> Editor.cmd(mc, "scoreboard objectives setdisplay sidebar"));
                 add(l, "Удалить КБ", "Убрать последнюю постройку", () -> Cb.removeLast(mc));
                 add(l, "Выдать КБ", "Командный, повторяющий, цепной", () -> Cb.giveBlocks(mc));
             }
-            case 6 -> {
+            case 7 -> {
                 add(l, "Верхний мир", "", () -> Editor.cmd(mc, "execute in minecraft:overworld run tp @s ~ ~ ~"));
                 add(l, "Незер", "", () -> Editor.cmd(mc, "execute in minecraft:the_nether run tp @s ~ ~ ~"));
                 add(l, "Энд", "", () -> Editor.cmd(mc, "execute in minecraft:the_end run tp @s ~ ~ ~"));
@@ -174,7 +214,7 @@ public class MackrosScreen extends Screen {
                 add(l, "Убрать предметы", "", () -> Editor.cmd(mc, "kill @e[type=item]"));
                 add(l, "Убить мобов", "", () -> Editor.cmd(mc, "kill @e[type=!player,type=!item,type=!armor_stand,type=!marker,type=!item_frame,type=!painting]"));
             }
-            case 7 -> {
+            case 8 -> {
                 add(l, "Творчество", "", () -> Editor.cmd(mc, "gamemode creative"));
                 add(l, "Спектатор", "", () -> Editor.cmd(mc, "gamemode spectator"));
                 add(l, "Выживание", "", () -> Editor.cmd(mc, "gamemode survival"));
@@ -187,11 +227,26 @@ public class MackrosScreen extends Screen {
                 keep(l, "Полёт x4", "", () -> mc.player.getAbilities().setFlySpeed(0.20f));
                 keep(l, "Полёт x8", "", () -> mc.player.getAbilities().setFlySpeed(0.40f));
             }
-            default -> {
+            case 9 -> {
                 add(l, "Сохранить", "Буфер в файл слота", Editor::save);
                 add(l, "Загрузить", "", Editor::load);
                 keep(l, "Слот: " + Editor.slot, "", () -> Editor.slot = Editor.slot >= 9 ? 1 : Editor.slot + 1);
                 keep(l, "Слот -", "", () -> Editor.slot = Math.max(1, Editor.slot - 1));
+            }
+            default -> {
+                keep(l, "HUD: " + onoff(Config.showHud), "Строка статуса на экране", () -> { Config.showHud = !Config.showHud; Config.save(); });
+                keep(l, "Контуры: " + onoff(Config.showOutlines), "Рамки выделения", () -> { Config.showOutlines = !Config.showOutlines; Config.save(); });
+                keep(l, "Цвет: " + (Config.colorMode == 1 ? "по блоку" : "один"), "Цвета контуров схемы", () -> { Config.colorMode = 1 - Config.colorMode; Config.save(); });
+                keep(l, "Лимит конт.: " + Config.previewLimit, "Сколько контуров рисовать", () -> { Config.previewLimit = Config.cycle(Config.previewLimit, 500, 1000, 2500, 5000, 10000); Config.save(); });
+                keep(l, "Дальность: " + Config.reach, "Дальность прицела", () -> { Config.reach = Config.cycle(Config.reach, 32, 64, 128, 256); Config.save(); });
+                keep(l, "Отмен: " + Config.undoLimit, "Глубина отмены", () -> { Config.undoLimit = Config.cycle(Config.undoLimit, 10, 25, 50, 100, 200); Config.save(); });
+                keep(l, "Команд/тик: " + Config.cmdRate, "Скорость правок на серверах", () -> { Config.cmdRate = Config.cycle(Config.cmdRate, 4, 8, 12, 20, 40); Config.save(); });
+                keep(l, "Объём: " + (Config.maxVolume >= 1_000_000 ? Config.maxVolume / 1_000_000 + "М" : Config.maxVolume / 1000 + "к"), "Максимум блоков за операцию",
+                        () -> { Config.maxVolume = Config.maxVolume <= 100_000 ? 1_000_000 : Config.maxVolume <= 1_000_000 ? 3_000_000 : Config.maxVolume <= 3_000_000 ? 10_000_000 : 100_000; Config.save(); });
+                keep(l, "Замена: " + (Config.fillMode == 0 ? "всё" : Config.fillMode == 1 ? "воздух" : "блоки"), "Что менять: всё, только воздух или только твёрдые блоки", () -> { Config.fillMode = (Config.fillMode + 1) % 3; Config.save(); });
+                keep(l, "Воздух: " + (Editor.pasteAir ? "да" : "нет"), "Вставлять воздух", () -> { Editor.pasteAir = !Editor.pasteAir; Config.save(); });
+                keep(l, "Просмотр: " + onoff(Editor.preview), "", () -> { Editor.preview = !Editor.preview; Config.save(); });
+                keep(l, "Сброс настроек", "", Config::reset);
             }
         }
         return l;
@@ -200,7 +255,7 @@ public class MackrosScreen extends Screen {
     @Override
     public void render(DrawContext ctx, int mx, int my, float d) {
         renderBackground(ctx, mx, my, d);
-        int w = 372, top = py - 24, bottom = py + CATS.length * 19 + 6;
+        int w = 372, top = py - 24, bottom = py + CATS.length * 17 + 6;
         ctx.fill(px - 4, top, px + w, bottom, 0xE6101820);
         ctx.fill(px - 4, top, px + w, top + 20, 0xFF123A56);
         ctx.fill(px - 4, top + 20, px + w, top + 22, 0xFF00C8E0);

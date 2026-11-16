@@ -24,5 +24,9 @@
   "key.mackros.line": "Line between points",
   "key.mackros.smooth": "Smooth terrain",
   "key.mackros.palette": "Random fill (hotbar)",
-  "key.mackros.gradient": "Height gradient (hotbar)"
+  "key.mackros.gradient": "Height gradient (hotbar)",
+  "key.mackros.lock": "Lock placement",
+  "key.mackros.layerup": "Layer up",
+  "key.mackros.layerdown": "Layer down",
+  "key.mackros.flood": "Flood fill"
 }
