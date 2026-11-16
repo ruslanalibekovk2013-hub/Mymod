@@ -20,5 +20,9 @@
   "key.mackros.nzp": "Paste offset +Z",
   "key.mackros.nzm": "Paste offset -Z",
   "key.mackros.nyp": "Paste offset +Y",
-  "key.mackros.nym": "Paste offset -Y"
+  "key.mackros.nym": "Paste offset -Y",
+  "key.mackros.line": "Line between points",
+  "key.mackros.smooth": "Smooth terrain",
+  "key.mackros.palette": "Random fill (hotbar)",
+  "key.mackros.gradient": "Height gradient (hotbar)"
 }

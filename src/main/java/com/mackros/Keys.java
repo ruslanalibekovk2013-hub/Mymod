@@ -34,6 +34,10 @@ public final class Keys {
         reg("clear", GLFW.GLFW_KEY_K);
         reg("sphere", GLFW.GLFW_KEY_H);
         reg("sym", GLFW.GLFW_KEY_Y);
+        reg("line", GLFW.GLFW_KEY_L);
+        reg("smooth", GLFW.GLFW_KEY_M);
+        reg("palette", GLFW.GLFW_KEY_O);
+        reg("gradient", GLFW.GLFW_KEY_SEMICOLON);
         reg("nxp", GLFW.GLFW_KEY_RIGHT);
         reg("nxm", GLFW.GLFW_KEY_LEFT);
         reg("nzm", GLFW.GLFW_KEY_UP);
@@ -68,6 +72,10 @@ public final class Keys {
             case "clear" -> Editor.fill(mc, Blocks.AIR.getDefaultState());
             case "sphere" -> Editor.sphere(mc, false);
             case "sym" -> Editor.cycleSym(mc);
+            case "line" -> Editor.line(mc);
+            case "smooth" -> Editor.smooth(mc, 1);
+            case "palette" -> Editor.paletteFill(mc, false);
+            case "gradient" -> Editor.paletteFill(mc, true);
             case "nxp" -> Editor.nudge(s, 0, 0);
             case "nxm" -> Editor.nudge(-s, 0, 0);
             case "nzp" -> Editor.nudge(0, 0, s);

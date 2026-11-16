@@ -20,5 +20,9 @@
   "key.mackros.nzp": "Смещение вставки +Z",
   "key.mackros.nzm": "Смещение вставки -Z",
   "key.mackros.nyp": "Смещение вставки +Y",
-  "key.mackros.nym": "Смещение вставки -Y"
+  "key.mackros.nym": "Смещение вставки -Y",
+  "key.mackros.line": "Линия между точками",
+  "key.mackros.smooth": "Сгладить рельеф",
+  "key.mackros.palette": "Случайная заливка (хотбар)",
+  "key.mackros.gradient": "Градиент по высоте (хотбар)"
 }

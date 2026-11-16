@@ -326,7 +326,11 @@ public final class Editor {
     }
 
     // ---------- shapes ----------
-    public static void sphere(MinecraftClient mc, boolean hollow) {
+    public static void sphere(MinecraftClient mc, boolean hollow) { sphereImpl(mc, hollow, false); }
+
+    public static void dome(MinecraftClient mc, boolean hollow) { sphereImpl(mc, hollow, true); }
+
+    private static void sphereImpl(MinecraftClient mc, boolean hollow, boolean half) {
         BlockPos c = look(mc, false);
         if (c == null) { msg("Нет блока в прицеле"); return; }
         BlockState s = held(mc);
@@ -335,6 +339,7 @@ public final class Editor {
         for (int dx = -r; dx <= r; dx++)
             for (int dy = -r; dy <= r; dy++)
                 for (int dz = -r; dz <= r; dz++) {
+                    if (half && dy < 0) continue;
                     int d = dx * dx + dy * dy + dz * dz;
                     if (d > r * r + 1) continue;
                     if (hollow && d <= (r - 1) * (r - 1)) continue;
@@ -387,6 +392,200 @@ public final class Editor {
             clip = n; ox = oy = oz = 0;
             msg("Загружен слот " + slot + ": " + clip.size() + " блоков");
         } catch (Exception ex) { msg("Ошибка загрузки: " + ex.getMessage()); }
+    }
+
+
+    // ---------- extra tools ----------
+    static final java.util.Random RND = new java.util.Random();
+    public static BlockPos mark;
+    public static String markDim;
+
+    static List<BlockState> palette(MinecraftClient mc) {
+        List<BlockState> l = new ArrayList<>();
+        for (int i = 0; i < 9; i++) {
+            ItemStack st = mc.player.getInventory().getStack(i);
+            if (st.getItem() instanceof BlockItem bi) l.add(bi.getBlock().getDefaultState());
+        }
+        return l;
+    }
+
+    public static void paletteFill(MinecraftClient mc, boolean gradient) {
+        if (!sel()) return;
+        List<BlockState> pal = palette(mc);
+        if (pal.isEmpty()) { msg("Положи блоки в хотбар"); return; }
+        BlockPos a = min(), b = max();
+        int h = Math.max(1, b.getY() - a.getY());
+        List<Change> ch = new ArrayList<>();
+        for (int x = a.getX(); x <= b.getX(); x++)
+            for (int y = a.getY(); y <= b.getY(); y++)
+                for (int z = a.getZ(); z <= b.getZ(); z++) {
+                    int idx;
+                    if (gradient) {
+                        idx = Math.round((y - a.getY()) / (float) h * (pal.size() - 1));
+                        if (RND.nextInt(5) == 0) idx += RND.nextBoolean() ? 1 : -1;
+                        idx = Math.max(0, Math.min(pal.size() - 1, idx));
+                    } else idx = RND.nextInt(pal.size());
+                    addSym(mc, ch, new BlockPos(x, y, z), pal.get(idx));
+                }
+        apply(mc, ch);
+    }
+
+    public static void paletteReplace(MinecraftClient mc) {
+        if (!sel()) return;
+        BlockPos t = look(mc, false);
+        if (t == null) { msg("Наведись на заменяемый блок"); return; }
+        List<BlockState> pal = palette(mc);
+        if (pal.isEmpty()) { msg("Положи блоки в хотбар"); return; }
+        Block target = mc.world.getBlockState(t).getBlock();
+        BlockPos a = min(), b = max();
+        List<Change> ch = new ArrayList<>();
+        for (int x = a.getX(); x <= b.getX(); x++)
+            for (int y = a.getY(); y <= b.getY(); y++)
+                for (int z = a.getZ(); z <= b.getZ(); z++) {
+                    BlockPos p = new BlockPos(x, y, z);
+                    if (mc.world.getBlockState(p).isOf(target)) addSym(mc, ch, p, pal.get(RND.nextInt(pal.size())));
+                }
+        apply(mc, ch);
+    }
+
+    public static void line(MinecraftClient mc) {
+        if (pos1 == null || pos2 == null) { msg("Сначала поставь точки 1 и 2"); return; }
+        BlockState s = held(mc);
+        int dx = pos2.getX() - pos1.getX(), dy = pos2.getY() - pos1.getY(), dz = pos2.getZ() - pos1.getZ();
+        int n = Math.max(Math.abs(dx), Math.max(Math.abs(dy), Math.abs(dz)));
+        List<Change> ch = new ArrayList<>();
+        for (int i = 0; i <= n; i++) {
+            double t = n == 0 ? 0 : (double) i / n;
+            BlockPos p = new BlockPos((int) Math.round(pos1.getX() + dx * t), (int) Math.round(pos1.getY() + dy * t), (int) Math.round(pos1.getZ() + dz * t));
+            addSym(mc, ch, p, s);
+        }
+        apply(mc, ch);
+    }
+
+    public static void ellipsoid(MinecraftClient mc, boolean hollow, boolean dome) {
+        if (!sel()) return;
+        BlockState s = held(mc);
+        BlockPos a = min(), b = max();
+        double cx0 = (a.getX() + b.getX()) / 2.0, cz0 = (a.getZ() + b.getZ()) / 2.0;
+        double rx = (b.getX() - a.getX() + 1) / 2.0, rz = (b.getZ() - a.getZ() + 1) / 2.0;
+        double cy = dome ? a.getY() : (a.getY() + b.getY()) / 2.0;
+        double ry = dome ? (b.getY() - a.getY() + 1) : (b.getY() - a.getY() + 1) / 2.0;
+        List<Change> ch = new ArrayList<>();
+        for (int x = a.getX(); x <= b.getX(); x++)
+            for (int y = a.getY(); y <= b.getY(); y++)
+                for (int z = a.getZ(); z <= b.getZ(); z++) {
+                    double nx = (x - cx0) / rx, ny = (y - cy) / ry, nz = (z - cz0) / rz;
+                    if (nx * nx + ny * ny + nz * nz > 1.0) continue;
+                    if (hollow) {
+                        double ix = (x - cx0) / Math.max(0.5, rx - 1), iy = (y - cy) / Math.max(0.5, ry - 1), iz = (z - cz0) / Math.max(0.5, rz - 1);
+                        if (ix * ix + iy * iy + iz * iz < 1.0) continue;
+                    }
+                    addSym(mc, ch, new BlockPos(x, y, z), s);
+                }
+        apply(mc, ch);
+    }
+
+    public static void smooth(MinecraftClient mc, int iter) {
+        if (!sel()) return;
+        BlockPos a = min(), b = max();
+        int w = b.getX() - a.getX() + 1, d = b.getZ() - a.getZ() + 1;
+        if (w > 512 || d > 512) { msg("Слишком большая область"); return; }
+        int[][] h = new int[w][d];
+        int[][] orig = new int[w][d];
+        for (int i = 0; i < w; i++)
+            for (int j = 0; j < d; j++) {
+                int top = a.getY() - 1;
+                for (int y = b.getY(); y >= a.getY(); y--) {
+                    if (!mc.world.getBlockState(new BlockPos(a.getX() + i, y, a.getZ() + j)).isAir()) { top = y; break; }
+                }
+                h[i][j] = top; orig[i][j] = top;
+            }
+        for (int it = 0; it < iter; it++) {
+            int[][] nh = new int[w][d];
+            for (int i = 0; i < w; i++)
+                for (int j = 0; j < d; j++) {
+                    int sum = 0, cnt = 0;
+                    for (int di = -1; di <= 1; di++)
+                        for (int dj = -1; dj <= 1; dj++) {
+                            int ni = i + di, nj = j + dj;
+                            if (ni < 0 || nj < 0 || ni >= w || nj >= d) continue;
+                            sum += h[ni][nj]; cnt++;
+                        }
+                    nh[i][j] = Math.round(sum / (float) cnt);
+                }
+            h = nh;
+        }
+        BlockState air = Blocks.AIR.getDefaultState();
+        List<Change> ch = new ArrayList<>();
+        for (int i = 0; i < w; i++)
+            for (int j = 0; j < d; j++) {
+                int o = orig[i][j];
+                if (o < a.getY()) continue;
+                int nt = Math.max(a.getY() - 1, Math.min(b.getY(), h[i][j]));
+                if (nt == o) continue;
+                int x = a.getX() + i, z = a.getZ() + j;
+                BlockState topS = mc.world.getBlockState(new BlockPos(x, o, z));
+                BlockState fillS = o - 1 >= a.getY() ? mc.world.getBlockState(new BlockPos(x, o - 1, z)) : topS;
+                if (fillS.isAir()) fillS = topS;
+                if (nt > o) {
+                    for (int y = o; y < nt; y++) addSym(mc, ch, new BlockPos(x, y, z), fillS);
+                    addSym(mc, ch, new BlockPos(x, nt, z), topS);
+                } else {
+                    for (int y = nt + 1; y <= o; y++) addSym(mc, ch, new BlockPos(x, y, z), air);
+                    if (nt >= a.getY()) addSym(mc, ch, new BlockPos(x, nt, z), topS);
+                }
+            }
+        apply(mc, ch);
+    }
+
+    public static void expand(MinecraftClient mc, int mode, int n) {
+        if (pos1 == null || pos2 == null) { msg("Сначала поставь точки 1 и 2"); return; }
+        Direction f = mc.player.getHorizontalFacing();
+        Direction dir = mode == 1 ? Direction.UP : mode == 2 ? Direction.DOWN : mode == 3 ? f.getOpposite() : f;
+        BlockPos a = min(), b = max();
+        if (dir.getDirection() == Direction.AxisDirection.POSITIVE) b = b.offset(dir, n); else a = a.offset(dir, n);
+        if (a.getX() > b.getX() || a.getY() > b.getY() || a.getZ() > b.getZ()) { msg("Нельзя сузить дальше"); return; }
+        pos1 = a; pos2 = b;
+        msg("Объём выделения: " + vol());
+    }
+
+    public static void transformSel(MinecraftClient mc, int mode) {
+        if (!sel()) return;
+        BlockPos a = min(), b = max();
+        List<Entry> src = new ArrayList<>();
+        for (int x = a.getX(); x <= b.getX(); x++)
+            for (int y = a.getY(); y <= b.getY(); y++)
+                for (int z = a.getZ(); z <= b.getZ(); z++)
+                    src.add(new Entry(x - a.getX(), y - a.getY(), z - a.getZ(), mc.world.getBlockState(new BlockPos(x, y, z))));
+        List<Entry> out = new ArrayList<>();
+        for (Entry e : src) {
+            if (mode == 0) out.add(new Entry(-e.z(), e.y(), e.x(), e.s().rotate(BlockRotation.CLOCKWISE_90)));
+            else if (mode == 1) out.add(new Entry(-e.x(), e.y(), e.z(), e.s().mirror(BlockMirror.FRONT_BACK)));
+            else out.add(new Entry(e.x(), e.y(), -e.z(), e.s().mirror(BlockMirror.LEFT_RIGHT)));
+        }
+        out = normalize(out);
+        BlockState air = Blocks.AIR.getDefaultState();
+        List<Change> ch = new ArrayList<>();
+        for (Entry e : src) if (!e.s().isAir()) ch.add(new Change(a.add(e.x(), e.y(), e.z()), e.s(), air));
+        int mx = 0, my = 0, mz = 0;
+        for (Entry e : out) {
+            BlockPos np = a.add(e.x(), e.y(), e.z());
+            ch.add(new Change(np, mc.world.getBlockState(np), e.s()));
+            mx = Math.max(mx, e.x()); my = Math.max(my, e.y()); mz = Math.max(mz, e.z());
+        }
+        pos1 = a; pos2 = a.add(mx, my, mz);
+        apply(mc, ch);
+    }
+
+    public static void setMark(MinecraftClient mc) {
+        mark = mc.player.getBlockPos();
+        markDim = mc.world.getRegistryKey().getValue().toString();
+        msg("Метка сохранена: " + mark.getX() + " " + mark.getY() + " " + mark.getZ() + " (" + markDim + ")");
+    }
+
+    public static void gotoMark(MinecraftClient mc) {
+        if (mark == null) { msg("Метка не задана"); return; }
+        cmd(mc, "execute in " + markDim + " run tp @s " + mark.getX() + " " + mark.getY() + " " + mark.getZ());
     }
 
     public static String status() {
