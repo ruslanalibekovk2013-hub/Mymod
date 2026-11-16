@@ -46,5 +46,16 @@
   "item.mackros.paster": "Paste Wand",
   "item.mackros.brush": "Brush",
   "item.mackros.eraser": "Eraser",
-  "item.mackros.menu_wand": "Menu Wand"
+  "item.mackros.menu_wand": "Menu Wand",
+  "block.mackros.timer": "Timer",
+  "block.mackros.transmitter": "Transmitter",
+  "block.mackros.receiver": "Receiver",
+  "block.mackros.logic": "Logic Block",
+  "block.mackros.sensor": "Sensor",
+  "block.mackros.launcher": "Catapult",
+  "block.mackros.conveyor": "Conveyor",
+  "block.mackros.module": "Universal Module",
+  "item.mackros.remote": "Remote (toggle)",
+  "item.mackros.remote_pulse": "Remote (pulse)",
+  "key.mackros.move": "Move menu"
 }

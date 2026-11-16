@@ -20,6 +20,7 @@ public final class Keys {
 
     public static void register() {
         reg("menu", GLFW.GLFW_KEY_RIGHT_SHIFT);
+        reg("move", GLFW.GLFW_KEY_C);
         reg("pos1", GLFW.GLFW_KEY_Z);
         reg("pos2", GLFW.GLFW_KEY_X);
         reg("copy", GLFW.GLFW_KEY_B);
@@ -63,6 +64,7 @@ public final class Keys {
         int s = Editor.step;
         switch (id) {
             case "menu" -> mc.setScreen(new MackrosScreen());
+            case "move" -> mc.setScreen(new MoveScreen());
             case "pos1" -> Editor.setPos(mc, 1);
             case "pos2" -> Editor.setPos(mc, 2);
             case "copy" -> Editor.copy(mc);

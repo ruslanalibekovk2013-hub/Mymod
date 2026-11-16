@@ -169,6 +169,45 @@ public final class Cb {
                 add(l, "execute as @a[scores={calc_go=1..}] run tellraw @s [{'text':'[Калькулятор] ','color':'aqua'},{'score':{'name':'@s','objective':'calc_a'}},{'text':' (оп ','color':'gray'},{'score':{'name':'@s','objective':'calc_op'}},{'text':') ','color':'gray'},{'score':{'name':'@s','objective':'calc_b'}},{'text':' = ','color':'yellow'},{'score':{'name':'@s','objective':'calc_r'},'color':'green','bold':true}]");
                 add(l, "scoreboard players set @a[scores={calc_go=1..}] calc_go 0");
             }
+            case "warp" -> {
+                l.add(rep("scoreboard players enable @a mk_wset"));
+                add(l, "scoreboard players enable @a mk_warp");
+                for (int i = 1; i <= 5; i++) {
+                    add(l, "execute as @a[scores={mk_wset=" + i + "}] at @s run kill @e[type=minecraft:marker,tag=mk_w" + i + "]");
+                    add(l, "execute as @a[scores={mk_wset=" + i + "}] at @s run summon minecraft:marker ~ ~ ~ {Tags:['mk_w" + i + "']}");
+                    add(l, "execute as @a[scores={mk_warp=" + i + "}] if entity @e[type=minecraft:marker,tag=mk_w" + i + "] at @e[type=minecraft:marker,tag=mk_w" + i + ",limit=1] run tp @s ~ ~ ~");
+                }
+                add(l, "execute as @a[scores={mk_wset=1..}] run tellraw @s {'text':'[Варп] точка сохранена','color':'green'}");
+                add(l, "execute as @a[scores={mk_warp=1..}] run tellraw @s {'text':'[Варп] телепорт','color':'aqua'}");
+                add(l, "scoreboard players set @a[scores={mk_wset=1..}] mk_wset 0");
+                add(l, "scoreboard players set @a[scores={mk_warp=1..}] mk_warp 0");
+            }
+            case "alarm" -> {
+                l.add(rep("execute if entity @a[distance=..14,tag=!mk_trust] run title @a[distance=..14] actionbar {'text':'ТРЕВОГА! Чужой рядом','color':'red','bold':true}"));
+                add(l, "execute if entity @a[distance=..14,tag=!mk_trust] run scoreboard players add #al mk_t 1");
+                add(l, "execute if score #al mk_t matches 10.. run playsound minecraft:block.note_block.bell master @a ~ ~ ~ 2 0.6");
+                add(l, "execute if score #al mk_t matches 10.. run scoreboard players set #al mk_t 0");
+                add(l, "execute unless entity @a[distance=..14,tag=!mk_trust] run scoreboard players set #al mk_t 0");
+                add(l, "execute if entity @a[distance=..14,tag=!mk_trust] run particle minecraft:angry_villager ~ ~2 ~ 1 1 1 0 6 force");
+            }
+            case "anvil" -> l.add(rep("execute if entity @a[distance=..1.4] unless entity @e[type=minecraft:falling_block,distance=..14] run summon minecraft:falling_block ~ ~10 ~ {BlockState:{Name:'minecraft:anvil'},HurtEntities:1b,FallHurtAmount:2.0f,FallHurtMax:40,Time:1}"));
+            case "disco" -> {
+                l.add(rep("execute store result score #r mk_t run random value 0..3"));
+                add(l, "execute if score #r mk_t matches 0 run particle minecraft:dust 1 0 0 2 ~ ~3 ~ 3 2 3 0 14 force");
+                add(l, "execute if score #r mk_t matches 1 run particle minecraft:dust 0 1 0 2 ~ ~3 ~ 3 2 3 0 14 force");
+                add(l, "execute if score #r mk_t matches 2 run particle minecraft:dust 0 0.3 1 2 ~ ~3 ~ 3 2 3 0 14 force");
+                add(l, "execute if score #r mk_t matches 3 run particle minecraft:dust 1 1 0 2 ~ ~3 ~ 3 2 3 0 14 force");
+            }
+            case "nightzone" -> l.add(rep("effect give @a[distance=..30] minecraft:night_vision 12 0 true"));
+            case "nofall" -> l.add(rep("effect give @a[distance=..16] minecraft:slow_falling 2 0 true"));
+            case "jumpzone" -> l.add(rep("effect give @a[distance=..8] minecraft:jump_boost 2 4 true"));
+            case "safezone" -> {
+                String[] mobs = {"zombie", "husk", "drowned", "skeleton", "stray", "creeper", "spider", "cave_spider", "witch", "slime", "phantom", "pillager"};
+                for (int i = 0; i < mobs.length; i++) {
+                    String c = "kill @e[type=minecraft:" + mobs[i] + ",distance=..20]";
+                    if (i == 0) l.add(rep(c)); else add(l, c);
+                }
+            }
             default -> { }
         }
         return l;
@@ -181,6 +220,9 @@ public final class Cb {
             case "clock" -> new String[]{"scoreboard objectives add clk_t dummy", "scoreboard players set #1000 clk_t 1000",
                     "scoreboard players set #60 clk_t 60", "scoreboard players set #24 clk_t 24", "scoreboard players set #6 clk_t 6"};
             case "dice" -> new String[]{"scoreboard objectives add mk_roll trigger"};
+            case "warp" -> new String[]{"scoreboard objectives add mk_wset trigger", "scoreboard objectives add mk_warp trigger"};
+            case "alarm" -> new String[]{"scoreboard objectives add mk_t dummy", "scoreboard players set #al mk_t 0", "tag @s add mk_trust"};
+            case "disco" -> new String[]{"scoreboard objectives add mk_t dummy"};
             default -> new String[0];
         };
     }
@@ -191,6 +233,10 @@ public final class Cb {
             case "dice" -> "Кубик: команда /trigger mk_roll";
             case "clock" -> "Часы показывают время в панели действий над хотбаром";
             case "mine" -> "Мина: взрывается под игроком, строй осторожно";
+            case "warp" -> "Варп: /trigger mk_wset set N (1-5) сохраняет точку, /trigger mk_warp set N телепортирует. Или кнопками меню";
+            case "alarm" -> "Сигнализация: чужие игроки в радиусе 14 вызывают тревогу. Ты получил метку доверия mk_trust (друзьям: /tag имя add mk_trust)";
+            case "anvil" -> "Ловушка: встань вплотную к первому КБ ряда, и сверху упадёт наковальня";
+            case "disco" -> "Диско: цветные частицы над рядом КБ";
             default -> "";
         };
     }
@@ -268,6 +314,89 @@ public final class Cb {
         Editor.cmd(mc, "give @s minecraft:command_block 1");
         Editor.cmd(mc, "give @s minecraft:repeating_command_block 1");
         Editor.cmd(mc, "give @s minecraft:chain_command_block 1");
+    }
+
+    // ---------- Пульт-тролль ----------
+    public static final String[] REMOTE_MODES = {"Взлёт", "Заморозка", "Клетка", "Паутина", "Молния", "ТНТ-дождь", "Наковальни",
+            "Свинопад", "Поджог", "Закрутка", "Хаос", "Невидимка", "Исцеление", "Снять клетку и паутину"};
+
+    private static final String[] SETUP_R = {
+            "gamerule commandBlockOutput false",
+            "scoreboard objectives add mkr_use minecraft.used:minecraft.carrot_on_a_stick",
+            "scoreboard objectives add mkr_tm trigger",
+            "scoreboard players add @a mkr_tm 0"
+    };
+
+    private static void rm(List<Spec> l, int mode, String cmd) {
+        String sc = mode == 1 ? "mkr_tm=0..1" : "mkr_tm=" + mode;
+        add(l, "execute if entity @a[scores={mkr_use=1.." + "," + sc + "}] as @e[tag=mk_tt] at @s run " + cmd);
+    }
+
+    private static List<Spec> remoteEngine() {
+        List<Spec> l = new ArrayList<>();
+        l.add(rep("scoreboard players enable @a mkr_tm"));
+        add(l, "execute as @a[scores={mkr_use=1..},nbt={SelectedItem:{id:'minecraft:carrot_on_a_stick',tag:{mkr:1b}}}] at @s anchored eyes positioned ^ ^ ^4 run tag @e[distance=..3.4,type=!marker,type=!item,type=!area_effect_cloud,sort=nearest,limit=1] add mk_tt");
+        rm(l, 1, "effect give @s minecraft:levitation 2 25 true");
+        rm(l, 1, "particle minecraft:cloud ~ ~ ~ 0.3 0.1 0.3 0.05 20");
+        rm(l, 2, "effect give @s minecraft:slowness 8 255 true");
+        rm(l, 2, "effect give @s minecraft:mining_fatigue 8 3 true");
+        rm(l, 2, "particle minecraft:snowflake ~ ~1 ~ 0.4 0.6 0.4 0.02 40");
+        rm(l, 3, "fill ~-1 ~ ~-1 ~-1 ~2 ~1 minecraft:iron_bars replace minecraft:air");
+        rm(l, 3, "fill ~1 ~ ~-1 ~1 ~2 ~1 minecraft:iron_bars replace minecraft:air");
+        rm(l, 3, "fill ~ ~ ~-1 ~ ~2 ~-1 minecraft:iron_bars replace minecraft:air");
+        rm(l, 3, "fill ~ ~ ~1 ~ ~2 ~1 minecraft:iron_bars replace minecraft:air");
+        rm(l, 3, "fill ~-1 ~3 ~-1 ~1 ~3 ~1 minecraft:iron_bars replace minecraft:air");
+        rm(l, 4, "fill ~-1 ~ ~-1 ~1 ~1 ~1 minecraft:cobweb replace minecraft:air");
+        rm(l, 5, "summon minecraft:lightning_bolt ~ ~ ~");
+        rm(l, 6, "summon minecraft:tnt ~ ~8 ~ {Fuse:40s}");
+        rm(l, 6, "summon minecraft:tnt ~2 ~9 ~ {Fuse:46s}");
+        rm(l, 6, "summon minecraft:tnt ~-2 ~9 ~1 {Fuse:52s}");
+        rm(l, 7, "summon minecraft:falling_block ~ ~9 ~ {BlockState:{Name:'minecraft:anvil'},HurtEntities:1b,FallHurtAmount:2.0f,FallHurtMax:40,Time:1}");
+        rm(l, 7, "summon minecraft:falling_block ~1 ~11 ~ {BlockState:{Name:'minecraft:anvil'},HurtEntities:1b,FallHurtAmount:2.0f,FallHurtMax:40,Time:1}");
+        rm(l, 7, "summon minecraft:falling_block ~-1 ~13 ~ {BlockState:{Name:'minecraft:anvil'},HurtEntities:1b,FallHurtAmount:2.0f,FallHurtMax:40,Time:1}");
+        rm(l, 8, "summon minecraft:pig ~ ~10 ~");
+        rm(l, 8, "summon minecraft:pig ~1 ~12 ~");
+        rm(l, 8, "summon minecraft:pig ~-1 ~14 ~");
+        rm(l, 8, "summon minecraft:pig ~ ~16 ~1");
+        rm(l, 9, "setblock ~ ~ ~ minecraft:fire keep");
+        rm(l, 9, "data merge entity @s {Fire:100s}");
+        rm(l, 10, "tp @s ~ ~ ~ ~180 ~");
+        rm(l, 11, "effect give @s minecraft:nausea 10 1 true");
+        rm(l, 11, "effect give @s minecraft:blindness 4 1 true");
+        rm(l, 11, "effect give @s minecraft:glowing 20 0 true");
+        rm(l, 12, "effect give @s minecraft:invisibility 30 0 true");
+        rm(l, 13, "effect give @s minecraft:regeneration 8 2 true");
+        rm(l, 13, "effect give @s minecraft:absorption 20 2 true");
+        rm(l, 13, "particle minecraft:heart ~ ~1.5 ~ 0.4 0.4 0.4 0 8");
+        rm(l, 14, "fill ~-1 ~ ~-1 ~-1 ~2 ~1 minecraft:air replace minecraft:iron_bars");
+        rm(l, 14, "fill ~1 ~ ~-1 ~1 ~2 ~1 minecraft:air replace minecraft:iron_bars");
+        rm(l, 14, "fill ~ ~ ~-1 ~ ~2 ~-1 minecraft:air replace minecraft:iron_bars");
+        rm(l, 14, "fill ~ ~ ~1 ~ ~2 ~1 minecraft:air replace minecraft:iron_bars");
+        rm(l, 14, "fill ~-1 ~3 ~-1 ~1 ~3 ~1 minecraft:air replace minecraft:iron_bars");
+        rm(l, 14, "fill ~-1 ~ ~-1 ~1 ~1 ~1 minecraft:air replace minecraft:cobweb");
+        add(l, "tag @e[tag=mk_tt] remove mk_tt");
+        add(l, "scoreboard players set @a[scores={mkr_use=1..}] mkr_use 0");
+        return l;
+    }
+
+    public static void buildRemote(MinecraftClient mc) {
+        for (String st : SETUP_R) Editor.cmd(mc, st);
+        build(mc, remoteEngine(), "Пульт-тролль");
+        Editor.say("Пульт: нажми «Выдать пульт», выбери режим кнопкой (или /trigger mkr_tm set N), ПКМ по цели в прицеле (до 4 блоков)");
+    }
+
+    public static void giveRemote(MinecraftClient mc) {
+        Editor.cmd(mc, "give @s minecraft:carrot_on_a_stick{display:{Name:'{\"text\":\"Пульт-тролль\",\"color\":\"gold\",\"italic\":false}'},mkr:1b,Unbreakable:1b,CustomModelData:110} 1");
+    }
+
+    public static void remoteMode(MinecraftClient mc, int n) {
+        Editor.cmd(mc, "scoreboard players set @s mkr_tm " + n);
+        Editor.msg("Режим пульта: " + n + " — " + REMOTE_MODES[n - 1]);
+    }
+
+    public static void clearTargets(MinecraftClient mc) {
+        Editor.cmd(mc, "tag @e[tag=mk_tt] remove mk_tt");
+        Editor.msg("Метки целей сняты");
     }
 
     public static void clearShots(MinecraftClient mc) {

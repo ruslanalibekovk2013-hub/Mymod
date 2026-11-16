@@ -23,6 +23,15 @@ public final class ModBlocks {
     public static final Block MARKER_A = reg("marker_a", new MBlocks.Marker(false, AbstractBlock.Settings.copy(Blocks.STONE)));
     public static final Block MARKER_B = reg("marker_b", new MBlocks.Marker(true, AbstractBlock.Settings.copy(Blocks.STONE)));
 
+    public static final Block TIMER = reg("timer", new AdvBlocks.Timer(AbstractBlock.Settings.copy(Blocks.IRON_BLOCK)));
+    public static final Block TRANSMITTER = reg("transmitter", new AdvBlocks.Transmitter(AbstractBlock.Settings.copy(Blocks.IRON_BLOCK)));
+    public static final Block RECEIVER = reg("receiver", new AdvBlocks.Receiver(AbstractBlock.Settings.copy(Blocks.IRON_BLOCK)));
+    public static final Block LOGIC = reg("logic", new AdvBlocks.Logic(AbstractBlock.Settings.copy(Blocks.IRON_BLOCK)));
+    public static final Block SENSOR = reg("sensor", new AdvBlocks.Sensor(AbstractBlock.Settings.copy(Blocks.IRON_BLOCK)));
+    public static final Block LAUNCHER = reg("launcher", new AdvBlocks.Launcher(AbstractBlock.Settings.copy(Blocks.IRON_BLOCK)));
+    public static final Block CONVEYOR = reg("conveyor", new AdvBlocks.Conveyor(AbstractBlock.Settings.copy(Blocks.IRON_BLOCK)));
+    public static final Block MODULE = reg("module", new AdvBlocks.Module(AbstractBlock.Settings.copy(Blocks.IRON_BLOCK)));
+
     private static Block reg(String id, Block block) {
         Identifier key = new Identifier(MackrosMod.ID, id);
         Registry.register(Registries.BLOCK, key, block);

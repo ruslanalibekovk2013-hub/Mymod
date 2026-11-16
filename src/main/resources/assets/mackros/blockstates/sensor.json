@@ -1,0 +1,9 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "mackros:block/sensor"
+      }
+    }
+  ]
+}

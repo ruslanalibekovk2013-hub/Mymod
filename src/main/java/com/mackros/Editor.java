@@ -305,6 +305,11 @@ public final class Editor {
             addSym(mc, ch, base.add(e.x(), e.y(), e.z()), e.s());
         }
         apply(mc, ch);
+        if (Config.autoSelect) {
+            int[] sz = size();
+            pos1 = base;
+            pos2 = base.add(Math.max(0, sz[0] - 1), Math.max(0, sz[1] - 1), Math.max(0, sz[2] - 1));
+        }
     }
 
     public static void rotate() {

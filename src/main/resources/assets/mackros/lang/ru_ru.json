@@ -46,5 +46,16 @@
   "item.mackros.paster": "Жезл вставки",
   "item.mackros.brush": "Кисть",
   "item.mackros.eraser": "Ластик",
-  "item.mackros.menu_wand": "Жезл меню"
+  "item.mackros.menu_wand": "Жезл меню",
+  "block.mackros.timer": "Таймер",
+  "block.mackros.transmitter": "Передатчик",
+  "block.mackros.receiver": "Приёмник",
+  "block.mackros.logic": "Логический блок",
+  "block.mackros.sensor": "Датчик",
+  "block.mackros.launcher": "Катапульта",
+  "block.mackros.conveyor": "Конвейер",
+  "block.mackros.module": "Универсальный модуль",
+  "item.mackros.remote": "Пульт (переключатель)",
+  "item.mackros.remote_pulse": "Пульт (импульс)",
+  "key.mackros.move": "Меню переноса"
 }

@@ -12,6 +12,9 @@ public final class ModItems {
     public static final Item ERASER = reg("eraser", new MackrosTool(3));
     public static final Item MENU_WAND = reg("menu_wand", new MackrosTool(4));
 
+    public static final Item REMOTE = reg("remote", new Remote(false));
+    public static final Item REMOTE_PULSE = reg("remote_pulse", new Remote(true));
+
     private static Item reg(String id, Item item) {
         return Registry.register(Registries.ITEM, new Identifier(MackrosMod.ID, id), item);
     }

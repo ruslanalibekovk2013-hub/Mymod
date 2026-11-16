@@ -12,6 +12,14 @@
     "mackros:heal_pad",
     "mackros:lamp",
     "mackros:marker_a",
-    "mackros:marker_b"
+    "mackros:marker_b",
+    "mackros:timer",
+    "mackros:transmitter",
+    "mackros:receiver",
+    "mackros:logic",
+    "mackros:sensor",
+    "mackros:launcher",
+    "mackros:conveyor",
+    "mackros:module"
   ]
 }

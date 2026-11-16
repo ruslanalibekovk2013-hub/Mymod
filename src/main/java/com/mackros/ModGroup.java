@@ -31,6 +31,16 @@ public final class ModGroup {
                     e.add(ModBlocks.MAGNET);
                     e.add(ModBlocks.HEAL_PAD);
                     e.add(ModBlocks.LAMP);
+                    e.add(ModItems.REMOTE);
+                    e.add(ModItems.REMOTE_PULSE);
+                    e.add(ModBlocks.TIMER);
+                    e.add(ModBlocks.TRANSMITTER);
+                    e.add(ModBlocks.RECEIVER);
+                    e.add(ModBlocks.LOGIC);
+                    e.add(ModBlocks.SENSOR);
+                    e.add(ModBlocks.LAUNCHER);
+                    e.add(ModBlocks.CONVEYOR);
+                    e.add(ModBlocks.MODULE);
                 })
                 .build();
         Registry.register(Registries.ITEM_GROUP, new Identifier(MackrosMod.ID, "main"), g);

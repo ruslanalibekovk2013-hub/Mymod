@@ -43,7 +43,7 @@ public final class ClientSetup {
                 case 1 -> { if (sneak) Editor.copy(mc); else Editor.paste(mc); }
                 case 2 -> Editor.sphereBlock(mc, Editor.offhandOrPalette(mc), sneak);
                 case 3 -> Editor.sphereBlock(mc, Blocks.AIR.getDefaultState(), false);
-                default -> mc.setScreen(new MackrosScreen());
+                default -> mc.setScreen(sneak ? new MoveScreen() : new MackrosScreen());
             }
             return TypedActionResult.success(st);
         });
