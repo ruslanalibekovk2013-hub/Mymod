@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "mackros:block/logic_daycycle_top_on",
+    "bottom": "mackros:block/logic_daycycle_side",
+    "side": "mackros:block/logic_daycycle_side"
+  }
+}

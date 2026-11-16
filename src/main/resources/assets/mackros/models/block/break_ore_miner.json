@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "mackros:block/break_ore_miner_top",
+    "bottom": "mackros:block/break_ore_miner_side",
+    "side": "mackros:block/break_ore_miner_side"
+  }
+}

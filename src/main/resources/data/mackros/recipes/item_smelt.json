@@ -1,0 +1,29 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "CXC",
+    "EME",
+    "III"
+  ],
+  "key": {
+    "C": {
+      "item": "minecraft:ender_pearl"
+    },
+    "X": {
+      "item": "minecraft:furnace"
+    },
+    "E": {
+      "item": "minecraft:redstone"
+    },
+    "M": {
+      "item": "mackros:module"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    }
+  },
+  "result": {
+    "item": "mackros:item_smelt",
+    "count": 1
+  }
+}

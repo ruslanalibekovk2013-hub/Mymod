@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "mackros:block/vortex_top_on",
+    "bottom": "mackros:block/vortex_side",
+    "side": "mackros:block/vortex_side"
+  }
+}

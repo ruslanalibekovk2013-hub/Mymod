@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "mackros:block/env_rain_top_on",
+    "bottom": "mackros:block/env_rain_side",
+    "side": "mackros:block/env_rain_side"
+  }
+}

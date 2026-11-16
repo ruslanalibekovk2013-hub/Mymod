@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "mackros:block/break_tree_cutter_top_on",
+    "bottom": "mackros:block/break_tree_cutter_side",
+    "side": "mackros:block/break_tree_cutter_side"
+  }
+}

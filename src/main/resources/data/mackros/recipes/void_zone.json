@@ -1,0 +1,29 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "CXC",
+    "EME",
+    "III"
+  ],
+  "key": {
+    "C": {
+      "item": "minecraft:gold_ingot"
+    },
+    "X": {
+      "item": "minecraft:end_stone"
+    },
+    "E": {
+      "item": "minecraft:redstone"
+    },
+    "M": {
+      "item": "mackros:module"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    }
+  },
+  "result": {
+    "item": "mackros:void_zone",
+    "count": 1
+  }
+}

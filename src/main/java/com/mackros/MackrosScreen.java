@@ -17,7 +17,9 @@ public class MackrosScreen extends Screen {
     private record Act(String name, String tip, Runnable run, boolean keep) {}
 
     private static final String[] CATS = {"Выделение", "Буфер", "Фигуры", "Рисование", "Схемы", "КБ оружие", "КБ блоки", "Мир", "Игрок", "Файлы",
-            "Выдать", "КБ тролль", "КБ механизмы", "Настройки"};
+            "Выдать", "КБ тролль", "КБ механизмы", "Настройки",
+            "Зоны эффектов", "Ветер и пады", "Спавнеры", "Дропперы", "Генераторы", "Добыча, рост", "Погода, взрыв",
+            "Урон, сервис", "Датчики/логика", "Телепорт/предм", "Свет и FX"};
     private static int cat = 0, page = 0, catScroll = 0;
     private static String query = "";
     private static final int PER = 18, VIS = 9;
@@ -371,6 +373,12 @@ public class MackrosScreen extends Screen {
                 for (int i = 1; i <= 5; i++) {
                     final int n = i;
                     add(l, "Варп: ТП " + n, "Телепорт на точку " + n, () -> Editor.cmd(mc, "trigger mk_warp set " + n));
+                }
+            }
+            case 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24 -> {
+                for (MechDefs.Def df : MechDefs.inGroup(c - 14)) {
+                    final String did = df.id;
+                    add(l, df.ru, df.desc + " [клик: выдать блок]", () -> MechClient.give(did));
                 }
             }
             default -> {

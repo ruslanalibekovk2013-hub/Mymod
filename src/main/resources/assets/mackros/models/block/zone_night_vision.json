@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "mackros:block/zone_night_vision_top",
+    "bottom": "mackros:block/zone_night_vision_side",
+    "side": "mackros:block/zone_night_vision_side"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "mackros:block/gen_sand_top_on",
+    "bottom": "mackros:block/gen_sand_side",
+    "side": "mackros:block/gen_sand_side"
+  }
+}

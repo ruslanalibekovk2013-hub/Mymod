@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "mackros:block/drop_stick_top",
+    "bottom": "mackros:block/drop_stick_side",
+    "side": "mackros:block/drop_stick_side"
+  }
+}

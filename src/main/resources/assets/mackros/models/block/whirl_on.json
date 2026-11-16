@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "mackros:block/whirl_top_on",
+    "bottom": "mackros:block/whirl_side",
+    "side": "mackros:block/whirl_side"
+  }
+}

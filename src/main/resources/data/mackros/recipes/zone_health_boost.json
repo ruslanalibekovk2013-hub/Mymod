@@ -1,0 +1,29 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "CXC",
+    "EME",
+    "III"
+  ],
+  "key": {
+    "C": {
+      "item": "minecraft:lapis_lazuli"
+    },
+    "X": {
+      "item": "minecraft:apple"
+    },
+    "E": {
+      "item": "minecraft:redstone"
+    },
+    "M": {
+      "item": "mackros:module"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    }
+  },
+  "result": {
+    "item": "mackros:zone_health_boost",
+    "count": 1
+  }
+}

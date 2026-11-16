@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "mackros:block/wind_storm_top",
+    "bottom": "mackros:block/wind_storm_side",
+    "side": "mackros:block/wind_storm_side"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "mackros:block/sens_hostile_top_on",
+    "bottom": "mackros:block/sens_hostile_side",
+    "side": "mackros:block/sens_hostile_side"
+  }
+}

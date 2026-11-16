@@ -1,0 +1,29 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "CXC",
+    "EME",
+    "III"
+  ],
+  "key": {
+    "C": {
+      "item": "minecraft:ender_pearl"
+    },
+    "X": {
+      "item": "minecraft:magma_block"
+    },
+    "E": {
+      "item": "minecraft:redstone"
+    },
+    "M": {
+      "item": "mackros:module"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    }
+  },
+  "result": {
+    "item": "mackros:item_void",
+    "count": 1
+  }
+}

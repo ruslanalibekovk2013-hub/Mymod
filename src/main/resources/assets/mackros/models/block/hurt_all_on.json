@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "mackros:block/hurt_all_top_on",
+    "bottom": "mackros:block/hurt_all_side",
+    "side": "mackros:block/hurt_all_side"
+  }
+}

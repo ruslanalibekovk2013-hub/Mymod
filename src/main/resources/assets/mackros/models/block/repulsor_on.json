@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "mackros:block/repulsor_top_on",
+    "bottom": "mackros:block/repulsor_side",
+    "side": "mackros:block/repulsor_side"
+  }
+}

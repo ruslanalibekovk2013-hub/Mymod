@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "mackros:block/item_smelt_top_on",
+    "bottom": "mackros:block/item_smelt_side",
+    "side": "mackros:block/item_smelt_side"
+  }
+}

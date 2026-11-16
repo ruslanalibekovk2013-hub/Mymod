@@ -1,0 +1,29 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "CXC",
+    "EME",
+    "III"
+  ],
+  "key": {
+    "C": {
+      "item": "minecraft:feather"
+    },
+    "X": {
+      "item": "minecraft:elytra"
+    },
+    "E": {
+      "item": "minecraft:redstone"
+    },
+    "M": {
+      "item": "mackros:module"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    }
+  },
+  "result": {
+    "item": "mackros:lift_fast",
+    "count": 1
+  }
+}

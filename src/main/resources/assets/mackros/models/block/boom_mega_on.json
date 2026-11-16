@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "mackros:block/boom_mega_top_on",
+    "bottom": "mackros:block/boom_mega_side",
+    "side": "mackros:block/boom_mega_side"
+  }
+}

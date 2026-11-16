@@ -44,5 +44,11 @@ public final class ModGroup {
                 })
                 .build();
         Registry.register(Registries.ITEM_GROUP, new Identifier(MackrosMod.ID, "main"), g);
+        ItemGroup m = FabricItemGroup.builder()
+                .icon(() -> new ItemStack(MechReg.BLOCKS.get("spawn_cow")))
+                .displayName(Text.translatable("itemGroup.mackros.machines"))
+                .entries((ctx, e) -> { for (net.minecraft.block.Block b : MechReg.BLOCKS.values()) e.add(b); })
+                .build();
+        Registry.register(Registries.ITEM_GROUP, new Identifier(MackrosMod.ID, "machines"), m);
     }
 }

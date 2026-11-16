@@ -10,8 +10,13 @@ public class MackrosMod implements ModInitializer {
     @Override
     public void onInitialize() {
         ModBlocks.init();
+        MechReg.init();
         ModItems.init();
         ModGroup.init();
+        ServerPlayNetworking.registerGlobalReceiver(Net.GIVE, (server, player, handler, buf, sender) -> {
+            String id = buf.readString(64);
+            server.execute(() -> MechReg.give(player, id));
+        });
         ServerPlayNetworking.registerGlobalReceiver(Net.ELEVATOR, (server, player, handler, buf, sender) -> {
             BlockPos src = buf.readBlockPos();
             int ty = buf.readInt();
