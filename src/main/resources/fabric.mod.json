@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "mackros",
-  "version": "${version}",
+  "version": "1.0.0",
   "name": "Mackros",
   "description": "Редактор построек: выделение, копирование, перенос, фигуры, симметрия, предпросмотр, меню.",
   "authors": ["Mackros"],
