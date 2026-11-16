@@ -10,6 +10,7 @@ public class MackrosClient implements ClientModInitializer {
     public void onInitializeClient() {
         Config.load();
         Keys.register();
+        ClientSetup.init();
         ClientTickEvents.END_CLIENT_TICK.register(Keys::tick);
         WorldRenderEvents.LAST.register(Renderer::render);
         HudRenderCallback.EVENT.register(Hud::render);

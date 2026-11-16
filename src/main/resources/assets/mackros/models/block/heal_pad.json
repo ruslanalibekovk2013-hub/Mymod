@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "mackros:block/heal_pad_top",
+    "bottom": "mackros:block/heal_pad_side",
+    "side": "mackros:block/heal_pad_side"
+  }
+}

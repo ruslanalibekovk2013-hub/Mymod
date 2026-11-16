@@ -1,0 +1,17 @@
+{
+  "replace": false,
+  "values": [
+    "mackros:elevator",
+    "mackros:calculator",
+    "mackros:panel",
+    "mackros:teleport_pad",
+    "mackros:trampoline",
+    "mackros:booster",
+    "mackros:fan",
+    "mackros:magnet",
+    "mackros:heal_pad",
+    "mackros:lamp",
+    "mackros:marker_a",
+    "mackros:marker_b"
+  ]
+}

@@ -1,13 +1,16 @@
 {
   "schemaVersion": 1,
   "id": "mackros",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "name": "Mackros",
-  "description": "Редактор построек: выделение, копирование, перенос, фигуры, симметрия, предпросмотр, меню.",
+  "description": "Редактор построек, схемы, жезлы, лифты, калькулятор и механизмы.",
   "authors": ["Mackros"],
   "license": "MIT",
-  "environment": "client",
-  "entrypoints": { "client": ["com.mackros.MackrosClient"] },
+  "environment": "*",
+  "entrypoints": {
+    "main": ["com.mackros.MackrosMod"],
+    "client": ["com.mackros.MackrosClient"]
+  },
   "depends": {
     "fabricloader": ">=0.15.0",
     "minecraft": "~1.20.4",

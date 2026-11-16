@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "mackros:block/heal_pad"
+    }
+  }
+}

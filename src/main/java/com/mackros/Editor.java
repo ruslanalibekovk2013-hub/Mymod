@@ -853,6 +853,32 @@ public final class Editor {
         apply(mc, ch);
     }
 
+
+    // ---------- для жезлов ----------
+    public static void sphereBlock(MinecraftClient mc, BlockState s, boolean hollow) {
+        BlockPos c = look(mc, false);
+        if (c == null) { msg("Нет блока в прицеле"); return; }
+        int r = radius;
+        List<Change> ch = new ArrayList<>();
+        for (int dx = -r; dx <= r; dx++)
+            for (int dy = -r; dy <= r; dy++)
+                for (int dz = -r; dz <= r; dz++) {
+                    int d = dx * dx + dy * dy + dz * dz;
+                    if (d > r * r + 1) continue;
+                    if (hollow && d <= (r - 1) * (r - 1)) continue;
+                    addSym(mc, ch, c.add(dx, dy, dz), s);
+                }
+        apply(mc, ch);
+    }
+
+    public static BlockState offhandOrPalette(MinecraftClient mc) {
+        ItemStack st = mc.player.getOffHandStack();
+        if (st.getItem() instanceof BlockItem bi) return bi.getBlock().getDefaultState();
+        List<BlockState> pal = palette(mc);
+        if (!pal.isEmpty()) return pal.get(RND.nextInt(pal.size()));
+        return Blocks.STONE.getDefaultState();
+    }
+
     public static String status() {
         return "Т1:" + fmt(pos1) + " Т2:" + fmt(pos2) + " | объём " + vol() + " | буфер " + clip.size()
                 + " | шаг " + step + " | симм " + (symX ? "X" : "") + (symZ ? "Z" : "") + (!symX && !symZ ? "-" : "")

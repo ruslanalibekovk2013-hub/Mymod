@@ -193,6 +193,23 @@ public class MackrosScreen extends Screen {
                 add(l, "Убрать табло", "", () -> Editor.cmd(mc, "scoreboard objectives setdisplay sidebar"));
                 add(l, "Удалить КБ", "Убрать последнюю постройку", () -> Cb.removeLast(mc));
                 add(l, "Выдать КБ", "Командный, повторяющий, цепной", () -> Cb.giveBlocks(mc));
+                add(l, "+ Лифт", "Выдать предмет (нужны читы)", () -> Editor.cmd(mc, "give @s mackros:elevator"));
+                add(l, "+ Калькулятор", "Выдать предмет (нужны читы)", () -> Editor.cmd(mc, "give @s mackros:calculator"));
+                add(l, "+ Пульт", "Выдать предмет (нужны читы)", () -> Editor.cmd(mc, "give @s mackros:panel"));
+                add(l, "+ Телепад", "Выдать предмет (нужны читы)", () -> Editor.cmd(mc, "give @s mackros:teleport_pad"));
+                add(l, "+ Батут", "Выдать предмет (нужны читы)", () -> Editor.cmd(mc, "give @s mackros:trampoline"));
+                add(l, "+ Ускоритель", "Выдать предмет (нужны читы)", () -> Editor.cmd(mc, "give @s mackros:booster"));
+                add(l, "+ Вентилятор", "Выдать предмет (нужны читы)", () -> Editor.cmd(mc, "give @s mackros:fan"));
+                add(l, "+ Магнит", "Выдать предмет (нужны читы)", () -> Editor.cmd(mc, "give @s mackros:magnet"));
+                add(l, "+ Лечебная", "Выдать предмет (нужны читы)", () -> Editor.cmd(mc, "give @s mackros:heal_pad"));
+                add(l, "+ Лампа", "Выдать предмет (нужны читы)", () -> Editor.cmd(mc, "give @s mackros:lamp"));
+                add(l, "+ Маркер A", "Выдать предмет (нужны читы)", () -> Editor.cmd(mc, "give @s mackros:marker_a"));
+                add(l, "+ Маркер B", "Выдать предмет (нужны читы)", () -> Editor.cmd(mc, "give @s mackros:marker_b"));
+                add(l, "+ Жезл", "Выдать предмет (нужны читы)", () -> Editor.cmd(mc, "give @s mackros:wand"));
+                add(l, "+ Вставка", "Выдать предмет (нужны читы)", () -> Editor.cmd(mc, "give @s mackros:paster"));
+                add(l, "+ Кисть", "Выдать предмет (нужны читы)", () -> Editor.cmd(mc, "give @s mackros:brush"));
+                add(l, "+ Ластик", "Выдать предмет (нужны читы)", () -> Editor.cmd(mc, "give @s mackros:eraser"));
+                add(l, "+ Жезл меню", "Выдать предмет (нужны читы)", () -> Editor.cmd(mc, "give @s mackros:menu_wand"));
             }
             case 7 -> {
                 add(l, "Верхний мир", "", () -> Editor.cmd(mc, "execute in minecraft:overworld run tp @s ~ ~ ~"));
