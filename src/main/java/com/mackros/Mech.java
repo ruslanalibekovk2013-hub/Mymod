@@ -30,7 +30,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.particle.ParticleType;
 import net.minecraft.particle.ParticleTypes;
-import net.minecraft.particle.SimpleParticleType;
+import net.minecraft.particle.DefaultParticleType;
 import net.minecraft.recipe.RecipeEntry;
 import net.minecraft.recipe.RecipeType;
 import net.minecraft.recipe.SmeltingRecipe;
@@ -489,7 +489,7 @@ public class Mech extends Block {
     // ---------- частицы
     private void fx(ServerWorld w, BlockPos f, int lv) {
         ParticleType<?> pt = Registries.PARTICLE_TYPE.get(new Identifier(d.a));
-        if (pt instanceof SimpleParticleType sp)
+        if (pt instanceof DefaultParticleType sp)
             w.spawnParticles(sp, f.getX() + 0.5, f.getY() + 0.5, f.getZ() + 0.5, lv * 2, 0.3, 0.3, 0.3, 0.02);
     }
 
