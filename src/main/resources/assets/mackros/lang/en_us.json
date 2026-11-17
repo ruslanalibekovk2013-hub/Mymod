@@ -257,5 +257,6 @@
   "block.mackros.fx_firework": "FX: Firework",
   "block.mackros.fx_happy": "FX: Happy",
   "block.mackros.fx_soul": "FX: Souls",
-  "itemGroup.mackros.machines": "Mackros: Machines"
+  "itemGroup.mackros.machines": "Mackros: Machines",
+  "key.mackros.rig": "Mechanism constructor"
 }

@@ -19,7 +19,7 @@ public class MackrosScreen extends Screen {
     private static final String[] CATS = {"Выделение", "Буфер", "Фигуры", "Рисование", "Схемы", "КБ оружие", "КБ блоки", "Мир", "Игрок", "Файлы",
             "Выдать", "КБ тролль", "КБ механизмы", "Настройки",
             "Зоны эффектов", "Ветер и пады", "Спавнеры", "Дропперы", "Генераторы", "Добыча, рост", "Погода, взрыв",
-            "Урон, сервис", "Датчики/логика", "Телепорт/предм", "Свет и FX"};
+            "Урон, сервис", "Датчики/логика", "Телепорт/предм", "Свет и FX", "Конструктор"};
     private static int cat = 0, page = 0, catScroll = 0;
     private static String query = "";
     private static final int PER = 18, VIS = 9;
@@ -28,6 +28,11 @@ public class MackrosScreen extends Screen {
     private int resultCount = 0, resultPages = 1;
 
     public MackrosScreen() { super(Text.literal("Mackros")); }
+
+    public static void openCat(int c) {
+        cat = c; page = 0; query = "";
+        MinecraftClient.getInstance().setScreen(new MackrosScreen());
+    }
 
     private Text lab(String s, boolean on) {
         return on ? Text.literal(s).styled(st -> st.withColor(Config.accent())) : Text.literal(s);
@@ -379,6 +384,13 @@ public class MackrosScreen extends Screen {
                 for (MechDefs.Def df : MechDefs.inGroup(c - 14)) {
                     final String did = df.id;
                     add(l, df.ru, df.desc + " [клик: выдать блок]", () -> MechClient.give(did));
+                }
+            }
+            case 25 -> {
+                add(l, "Конструктор", "Меню механизмов из КБ с картой выбора места (клавиша ` )", () -> MinecraftClient.getInstance().setScreen(new RigScreen()));
+                for (Rig.Def rd : Rig.ALL) {
+                    final String rk = rd.key();
+                    add(l, rd.name(), rd.desc(), () -> MinecraftClient.getInstance().setScreen(new RigScreen(rk)));
                 }
             }
             default -> {
