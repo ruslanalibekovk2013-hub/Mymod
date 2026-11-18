@@ -177,7 +177,7 @@ public final class Rig {
                     b.c("scoreboard players set @a " + jmp + " 0");
                     b.c("scoreboard players set @a " + snk + " 0");
                     b.pl.help = "Встань в шахту: прыжок = вверх, присед = вниз. Прямой вызов: /trigger " + go + " set N (N = этаж 1.." + n + ").";
-                    return b.done(5, -2, -1);
+                    return b.done(5, 0, -1);
                 });
 
         // ===== СЕТЬ ТЕЛЕПОРТОВ =====
@@ -224,7 +224,7 @@ public final class Rig {
                     b.c("scoreboard players set @a " + jmp + " 0");
                     b.c("scoreboard players set @a " + snk + " 0");
                     b.pl.help = "Встань на чёрную площадку: прыжок = на следующую, присед = на предыдущую.";
-                    return b.done(-2, -3, -2);
+                    return b.done(-8, 0, -r - 6);
                 });
 
         // ===== ВОРОТА =====
@@ -249,7 +249,7 @@ public final class Rig {
                         b.c("execute " + pos + " unless entity " + who + " if block " + f1 + " minecraft:air run playsound minecraft:block.iron_door.close master @a ~ ~ ~ 1 1");
                         b.c("execute " + pos + " unless entity " + who + " run fill " + f1 + " " + f2 + " minecraft:iron_bars replace minecraft:air");
                         b.pl.help = keyed ? "Метка доступа: " + id + "_ok. Другу: /tag Имя add " + id + "_ok" : "Подойди к воротам — они откроются сами.";
-                        return b.done(0, -2, 2);
+                        return b.done(w + 3, 0, 0);
                     });
         }
 
@@ -279,7 +279,7 @@ public final class Rig {
                     b.c("execute if score #open " + t + " matches 1.. run scoreboard players remove #open " + t + " 1");
                     b.c("execute " + ctr + " if score #open " + t + " matches 0 unless entity @a[distance=..2.5] run fill " + f1 + " " + f2 + " minecraft:iron_block replace minecraft:air");
                     b.pl.help = "Код: " + code + ". Ввод: /trigger " + cd + " set " + code + ". Открыто 5 секунд.";
-                    return b.done(-2, -2, 2);
+                    return b.done(5, 0, 0);
                 });
 
         // ===== МАГИЧЕСКАЯ ФЕРМА =====
@@ -318,7 +318,7 @@ public final class Rig {
                     b.c("execute if score #t " + t + " matches " + (g + 20) + ".. run scoreboard players set #t " + t + " 0");
                     b.c("execute positioned " + b.X(0) + " " + b.Y(0) + " " + b.Z(0) + " as @e[type=item,distance=.." + (h + 5) + "] run tp @s " + fd(b.X(h + 2) + 0.5) + " " + fd(b.Y(0) + 1.2) + " " + fd(b.Z(0) + 0.5));
                     b.pl.help = "Ферма работает сама: урожай вырастает каждые " + p[2] + " сек, собирается в сундук справа.";
-                    return b.done(-h - 1, -3, h + 3);
+                    return b.done(-h - 1, 0, h + 3);
                 });
 
         // ===== АВТОБУР =====
@@ -352,7 +352,7 @@ public final class Rig {
                     b.c("execute if score #run " + t + " matches 2 if score #w " + t + " matches 160.. run scoreboard players set #run " + t + " 0");
                     b.c("execute if score #run " + t + " matches 1..2 positioned " + b.X(0) + " " + b.Y(-d / 2) + " " + b.Z(0) + " as @e[type=item,distance=.." + (d / 2 + 8) + "] run tp @s " + fd(b.X(r + 3) + 0.5) + " " + fd(b.Y(0) + 1.2) + " " + fd(b.Z(0) + 0.5));
                     b.pl.help = "Пуск: /trigger " + go + " set 1. Стоп: set 2. Глубина " + d + " слоёв, добыча в сундук рядом.";
-                    return b.done(-2, -3, r + 3);
+                    return b.done(-2, 0, r + 3);
                 });
 
         // ===== ТУРЕЛЬ =====
@@ -374,7 +374,7 @@ public final class Rig {
                     b.c("execute if score #t " + t + " matches " + rate + ".. " + pos + " if entity @e[type=#minecraft:skeletons,distance=.." + rad + "] run playsound minecraft:entity.arrow.shoot master @a ~ ~ ~ 1 1.2");
                     b.c("execute if score #t " + t + " matches " + rate + ".. run scoreboard players set #t " + t + " 0");
                     b.pl.help = "Турель бьёт " + HOSTILE.length + " видов враждебных мобов в радиусе " + rad + ".";
-                    return b.done(-8, -3, -2);
+                    return b.done(-8, 0, -4);
                 });
 
         // ===== КУПОЛ =====
@@ -400,7 +400,7 @@ public final class Rig {
                     b.c("execute if score #t " + t + " matches 20.. " + pos + " run effect give @a[distance=.." + (r - 1) + "] minecraft:saturation 5 0 true");
                     b.c("execute if score #t " + t + " matches 20.. run scoreboard players set #t " + t + " 0");
                     b.pl.help = "Вход с севера (проём 3x3). Внутри купола враждебные мобы исчезают.";
-                    return b.done(-8, -3, -r - 4);
+                    return b.done(-8, 0, -r - 4);
                 });
 
         // ===== ВОЛНЫ МОБОВ =====
@@ -444,7 +444,7 @@ public final class Rig {
                     b.c(on + "run tellraw @a[distance=..60] ['',{'text':'Волна ','color':'gold'},{'score':{'name':'#w','objective':'" + t + "'},'color':'yellow'}]");
                     b.c(on + "run scoreboard players set #t " + t + " 0");
                     b.pl.help = "Пуск: /trigger " + go + " set 1, стоп: set 2. Награда (алмазы) каждые 5 волн в центре арены.";
-                    return b.done(-8, -3, r + 4);
+                    return b.done(-8, 0, r + 4);
                 });
 
         // ===== КОНВЕЙЕР =====
@@ -471,7 +471,7 @@ public final class Rig {
                     b.c("execute if score #dir " + t + " matches 1 as " + vol + " at @s run tp @s ~" + st + " ~ ~");
                     b.c("execute if score #dir " + t + " matches 2 as " + vol + " at @s run tp @s ~-" + st + " ~ ~");
                     b.pl.help = "Лента идёт вдоль +X. Смена направления: /trigger " + go + " set 1.";
-                    return b.done(0, -3, w + 1);
+                    return b.done(0, 0, w + 1);
                 });
 
         // ===== СВЕТОВОЕ ШОУ =====
@@ -508,7 +508,7 @@ public final class Rig {
                     }
                     b.c("execute if score #t " + t + " matches 200.. run scoreboard players set #t " + t + " 0");
                     b.pl.help = "Старт: /trigger " + go + " set 1, стоп: set 2. Цикл 10 сцен.";
-                    return b.done(-r - 4, -3, -2);
+                    return b.done(-r - 4, 0, -2);
                 });
 
         // ===== МЕТЕОПАНЕЛЬ =====
@@ -530,7 +530,7 @@ public final class Rig {
                     }
                     b.c("scoreboard players set @a " + go + " 0");
                     b.pl.help = "/trigger " + go + " set N: 1 ясно, 2 дождь, 3 гроза, 4 утро, 5 день, 6 полдень, 7 вечер, 8 ночь, 9 полночь.";
-                    return b.done(-8, -3, 0);
+                    return b.done(-8, 0, -3);
                 });
 
         // ===== ДОМА =====
@@ -566,7 +566,7 @@ public final class Rig {
                     b.c("scoreboard players set @a " + hs + " 0");
                     b.c("scoreboard players set @a " + hg + " 0");
                     b.pl.help = "Запомнить: /trigger " + hs + " set 1. Домой: /trigger " + hg + " set 1. У каждого игрока свой дом.";
-                    return b.done(-8, -3, 0);
+                    return b.done(-8, 0, -3);
                 });
 
         // ===== УМНОЕ ОСВЕЩЕНИЕ =====
@@ -588,7 +588,7 @@ public final class Rig {
                         b.c("execute unless score #d " + t + " matches 12500..23500 run setblock " + at + " minecraft:glass");
                     }
                     b.pl.help = "Фонари включаются с 12500 до 23500 тика (ночь).";
-                    return b.done(0, -2, 2);
+                    return b.done(0, 0, 3);
                 });
     }
 

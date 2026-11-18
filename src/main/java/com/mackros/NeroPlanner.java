@@ -33,9 +33,20 @@ public final class NeroPlanner {
     private static final class Ctx {
         final BlockPos base;
         final NeroBuildPlan pl;
-        int el = -1, bayZ = 0;
+        int el = -1, bayZ = 0, idN = 0;
+        final long seed;
 
-        Ctx(BlockPos b, NeroBuildPlan p) { base = b; pl = p; }
+        Ctx(BlockPos b, NeroBuildPlan p, long seed) { base = b; pl = p; this.seed = seed; }
+
+        /** Детерминированный id: при перепланировании проекта имена целей и тегов не меняются. */
+        String nextId() {
+            long h = (seed + 0x9E3779B97F4A7C15L * (++idN)) * 0xBF58476D1CE4E5B9L;
+            h ^= (h >>> 31);
+            String a = "abcdefghijklmnopqrstuvwxyz0123456789";
+            StringBuilder s = new StringBuilder("m");
+            for (int i = 0; i < 3; i++) { s.append(a.charAt((int) Math.floorMod(h, 36L))); h /= 36; }
+            return s.toString();
+        }
 
         int begin(String name, String kind, String activation, String logic, int... deps) {
             List<Integer> d = new ArrayList<>();
@@ -89,7 +100,7 @@ public final class NeroPlanner {
         /** Укладывает цепочку КБ змейкой (ширина 16) в «отсек КБ» слева от постройки, под землёй. */
         void chain(List<String> cmds, int el) {
             int w = 16, n = cmds.size();
-            int bx = base.getX() - 20, by = base.getY() - 3, bz = base.getZ() + bayZ;
+            int bx = base.getX() - 28, by = base.getY(), bz = base.getZ() + bayZ;
             for (int i = 0; i < n; i++) {
                 int row = i / w, col = i % w;
                 int x = bx + (row % 2 == 0 ? col : w - 1 - col);
@@ -108,7 +119,7 @@ public final class NeroPlanner {
         Rig.Def d = Rig.find(key);
         int[] p = new int[d.pn().length];
         for (int i = 0; i < p.length; i++) p[i] = clamp(i < prm.length ? prm[i] : d.df()[i], d.mn()[i], d.mx()[i]);
-        String id = Rig.newId();
+        String id = c.nextId();
         Rig.Plan rp = d.gen().make(new BlockPos(c.base.getX() + ox, c.base.getY() + oy, c.base.getZ() + oz), id, p);
         int el = c.begin(name, "mechanism", activation, logic, deps);
         List<String> cmds = new ArrayList<>();
@@ -450,7 +461,7 @@ public final class NeroPlanner {
     private static void secret(Ctx c, NeroSpec s) {
         Pal p = pal(s.style);
         String tag = c.pl.entityTag;
-        String id = Rig.newId();
+        String id = c.nextId();
         int wl = c.begin("Секретная комната: стена и комната", "structure", "-", "Маскирующая стена с дверью и скрытая комната 7x7");
         c.carve(0, 0, -2, 10, 5, 9);
         c.box(0, -1, -2, 10, -1, 9, p.floor());
@@ -486,7 +497,7 @@ public final class NeroPlanner {
 
     // ------------------------------------------------------------------ сигнализация
     private static void alarm(Ctx c, int x, int z, int radius, int... dep) {
-        String id = Rig.newId();
+        String id = c.nextId();
         int el = c.begin("Сигнализация", "mechanism", "Чужой игрок в радиусе " + radius, "Сирена, надпись, подсветка чужих", dep);
         for (int y = 0; y < 3; y++) c.set(x, y, z, Blocks.IRON_BLOCK);
         c.set(x, 3, z, Blocks.REDSTONE_LAMP);
@@ -511,8 +522,8 @@ public final class NeroPlanner {
         NeroBuildPlan pl = new NeroBuildPlan();
         pl.title = s.title();
         pl.origin = base;
-        pl.entityTag = "nero_" + Rig.newId();
-        Ctx c = new Ctx(base, pl);
+        Ctx c = new Ctx(base, pl, s.seed == 0 ? 12345L : s.seed);
+        pl.entityTag = "nero_" + c.nextId();
         switch (s.kind) {
             case "house" -> house(c, s);
             case "tower" -> tower(c, s, false);

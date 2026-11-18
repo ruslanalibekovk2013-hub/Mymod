@@ -11,6 +11,7 @@ public class MackrosClient implements ClientModInitializer {
         Config.load();
         NeroConfig.load();
         NeroHistory.load();
+        NeroStore.load();
         Keys.register();
         ClientSetup.init();
         ClientTickEvents.END_CLIENT_TICK.register(Keys::tick);

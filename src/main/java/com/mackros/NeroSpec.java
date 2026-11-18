@@ -23,17 +23,24 @@ public final class NeroSpec {
     public int floors = 0, w = 0, d = 0, len = 0, code = 0, copies = 1;
     public final Set<String> extras = new LinkedHashSet<>();
     public boolean askedStyle = false, askedExtras = false;
+    public long seed = 0;
 
     public NeroSpec copy() {
         NeroSpec s = new NeroSpec();
         s.kind = kind; s.style = style; s.garageSide = garageSide;
         s.floors = floors; s.w = w; s.d = d; s.len = len; s.code = code; s.copies = copies;
         s.extras.addAll(extras);
-        s.askedStyle = askedStyle; s.askedExtras = askedExtras;
+        s.askedStyle = askedStyle; s.askedExtras = askedExtras; s.seed = seed;
         return s;
     }
 
     public static int clamp(int v, int lo, int hi) { return Math.max(lo, Math.min(hi, v)); }
+
+    /** Этажи с учётом значения по умолчанию для типа. */
+    public int fl() {
+        if (floors > 0) return floors;
+        return switch (kind) { case "house" -> 2; case "tower" -> 10; case "hotel" -> 8; case "lift" -> 5; default -> 1; };
+    }
 
     public JsonObject toJson() {
         JsonObject o = new JsonObject();
@@ -45,6 +52,7 @@ public final class NeroSpec {
         o.addProperty("length", len);
         o.addProperty("code", code);
         o.addProperty("copies", copies);
+        o.addProperty("seed", seed);
         o.addProperty("garage_side", garageSide);
         JsonArray a = new JsonArray();
         for (String e : extras) a.add(e);
@@ -73,6 +81,7 @@ public final class NeroSpec {
             s.len = clamp(geti(o, "length"), 0, 120);
             s.code = clamp(geti(o, "code"), 0, 9999);
             s.copies = clamp(geti(o, "copies"), 1, 4);
+            try { s.seed = o.has("seed") ? o.get("seed").getAsLong() : 0; } catch (Exception e) { s.seed = 0; }
             if (o.has("garage_side")) {
                 String g = o.get("garage_side").getAsString().trim().toLowerCase();
                 if (SIDES.contains(g)) s.garageSide = g;

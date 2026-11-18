@@ -47,7 +47,10 @@ public final class NeroAI {
 
     private static void handle(NeroResponse r) {
         if (!r.ok) { NeroHistory.log("Ошибка: " + r.error); return; }
-        if (r.spec != null) project = r.spec;
+        if (r.spec != null) {
+            if (r.spec.seed == 0) r.spec.seed = (project != null && project.kind.equals(r.spec.kind) && project.seed != 0) ? project.seed : (new java.util.Random().nextLong() | 1L);
+            project = r.spec;
+        }
         pending = r.pending;
         if (!r.reply.isEmpty()) NeroHistory.log("NERO (" + r.provider + "): " + r.reply);
     }

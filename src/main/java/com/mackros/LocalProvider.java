@@ -154,6 +154,7 @@ public final class LocalProvider implements AIProvider {
         if (fresh) {
             cur = new NeroSpec();
             cur.kind = kind;
+            cur.seed = new java.util.Random().nextLong() | 1L;
             applyDetails(t, cur);
             applyExtras(t, cur, false);
             pending = null;
