@@ -258,5 +258,6 @@
   "block.mackros.fx_happy": "FX: Happy",
   "block.mackros.fx_soul": "FX: Souls",
   "itemGroup.mackros.machines": "Mackros: Machines",
-  "key.mackros.rig": "Mechanism constructor"
+  "key.mackros.rig": "Mechanism constructor",
+  "key.mackros.nero": "NERO AI (constructor)"
 }

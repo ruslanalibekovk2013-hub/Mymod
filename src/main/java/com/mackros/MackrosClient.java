@@ -9,6 +9,8 @@ public class MackrosClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         Config.load();
+        NeroConfig.load();
+        NeroHistory.load();
         Keys.register();
         ClientSetup.init();
         ClientTickEvents.END_CLIENT_TICK.register(Keys::tick);

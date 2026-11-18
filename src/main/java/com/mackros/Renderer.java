@@ -33,6 +33,8 @@ public final class Renderer {
             }
         }
 
+        if (NeroBuilder.preview != null) box(m, vc, NeroBuilder.preview, 1f, 0.65f, 0.1f);
+
         if (Editor.preview && !Editor.clip.isEmpty()) {
             BlockPos base = Editor.placeBase(mc);
             if (base != null) {

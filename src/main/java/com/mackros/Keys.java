@@ -50,12 +50,14 @@ public final class Keys {
         reg("nyp", GLFW.GLFW_KEY_PAGE_UP);
         reg("nym", GLFW.GLFW_KEY_PAGE_DOWN);
         reg("rig", GLFW.GLFW_KEY_GRAVE_ACCENT);
+        reg("nero", GLFW.GLFW_KEY_F9);
     }
 
     public static void tick(MinecraftClient mc) {
         if (mc.player == null || mc.world == null) return;
         Editor.tickQueue(mc);
         Editor.tickVerify(mc);
+        NeroBuilder.tickAll(mc);
         for (Map.Entry<String, KeyBinding> e : K.entrySet()) {
             while (e.getValue().wasPressed()) run(mc, e.getKey());
         }
@@ -67,6 +69,7 @@ public final class Keys {
             case "menu" -> mc.setScreen(new MackrosScreen());
             case "move" -> mc.setScreen(new MoveScreen());
             case "rig" -> mc.setScreen(new RigScreen());
+            case "nero" -> mc.setScreen(new NeroScreen());
             case "pos1" -> Editor.setPos(mc, 1);
             case "pos2" -> Editor.setPos(mc, 2);
             case "copy" -> Editor.copy(mc);

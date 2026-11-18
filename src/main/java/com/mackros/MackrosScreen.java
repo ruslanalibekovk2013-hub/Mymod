@@ -19,7 +19,7 @@ public class MackrosScreen extends Screen {
     private static final String[] CATS = {"Выделение", "Буфер", "Фигуры", "Рисование", "Схемы", "КБ оружие", "КБ блоки", "Мир", "Игрок", "Файлы",
             "Выдать", "КБ тролль", "КБ механизмы", "Настройки",
             "Зоны эффектов", "Ветер и пады", "Спавнеры", "Дропперы", "Генераторы", "Добыча, рост", "Погода, взрыв",
-            "Урон, сервис", "Датчики/логика", "Телепорт/предм", "Свет и FX", "Конструктор"};
+            "Урон, сервис", "Датчики/логика", "Телепорт/предм", "Свет и FX", "Конструктор", "NERO AI"};
     private static int cat = 0, page = 0, catScroll = 0;
     private static String query = "";
     private static final int PER = 18, VIS = 9;
@@ -392,6 +392,11 @@ public class MackrosScreen extends Screen {
                     final String rk = rd.key();
                     add(l, rd.name(), rd.desc(), () -> MinecraftClient.getInstance().setScreen(new RigScreen(rk)));
                 }
+            }
+            case 26 -> {
+                add(l, "Открыть NERO AI", "Пиши обычным языком, что построить: дом, лифт, секретную комнату... (клавиша F9)", () -> MinecraftClient.getInstance().setScreen(new NeroScreen()));
+                add(l, "Настройки NERO AI", "Подключение внешней нейросети: URL, ключ, модель, тайм-аут", () -> MinecraftClient.getInstance().setScreen(new NeroSettingsScreen()));
+                add(l, "NERO: пример лифта", "Построй лифт на 10 этажей", () -> MinecraftClient.getInstance().setScreen(new NeroScreen()));
             }
             default -> {
                 keep(l, "Ось: " + (Config.relMove ? "по взгляду" : "по миру"), "Направления в меню переноса", () -> { Config.relMove = !Config.relMove; Config.save(); });
