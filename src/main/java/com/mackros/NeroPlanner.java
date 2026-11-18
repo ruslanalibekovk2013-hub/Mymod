@@ -19,9 +19,9 @@ import static com.mackros.NeroSpec.clamp;
 
 /** Планировщик: превращает NeroSpec в NeroBuildPlan, комбинируя строительные элементы и механизмы Rig. */
 public final class NeroPlanner {
-    private record Pal(Block wall, Block floor, Block roof, Block glass, Block pillar, Block light, Block accent) { }
+    record Pal(Block wall, Block floor, Block roof, Block glass, Block pillar, Block light, Block accent) { }
 
-    private static Pal pal(String style) {
+    static Pal pal(String style) {
         if ("medieval".equals(style))
             return new Pal(Blocks.STONE_BRICKS, Blocks.OAK_PLANKS, Blocks.DARK_OAK_PLANKS, Blocks.GLASS, Blocks.OAK_LOG, Blocks.GLOWSTONE, Blocks.COBBLESTONE);
         if ("futuristic".equals(style))
@@ -30,7 +30,7 @@ public final class NeroPlanner {
     }
 
     // ------------------------------------------------------------------ контекст построения
-    private static final class Ctx {
+    static final class Ctx {
         final BlockPos base;
         final NeroBuildPlan pl;
         int el = -1, bayZ = 0, idN = 0;
@@ -115,7 +115,7 @@ public final class NeroPlanner {
     private static String fd(double v) { return String.format(Locale.ROOT, "%.1f", v); }
 
     // ------------------------------------------------------------------ мост к каталогу Rig
-    private static int rig(Ctx c, String key, int ox, int oy, int oz, String name, String activation, String logic, int[] prm, int... deps) {
+    static int rig(Ctx c, String key, int ox, int oy, int oz, String name, String activation, String logic, int[] prm, int... deps) {
         Rig.Def d = Rig.find(key);
         int[] p = new int[d.pn().length];
         for (int i = 0; i < p.length; i++) p[i] = clamp(i < prm.length ? prm[i] : d.df()[i], d.mn()[i], d.mx()[i]);
@@ -138,7 +138,7 @@ public final class NeroPlanner {
 
     // ------------------------------------------------------------------ оболочка здания
     /** Здание: фундамент, этажи высотой fh, стены (или остекление), перекрытия, свет, крыша. Возвращает индекс элемента. */
-    private static int shell(Ctx c, String name, int x0, int z0, int W, int D, int F, int fh, Pal p, boolean curtain, boolean lights, boolean pyramid) {
+    static int shell(Ctx c, String name, int x0, int z0, int W, int D, int F, int fh, Pal p, boolean curtain, boolean lights, boolean pyramid) {
         int el = c.begin(name, "structure", "-", "Стены, перекрытия, крыша");
         int x1 = x0 + W - 1, z1 = z0 + D - 1;
         c.carve(x0, 0, z0, x1, F * fh + 1, z1);
@@ -177,7 +177,7 @@ public final class NeroPlanner {
         return el;
     }
 
-    private static void furnish(Ctx c, int x0, int z0, int W, int D, int F, int fh, boolean noLiftZone, int lx1, int lx2, int lz1, int lz2) {
+    static void furnish(Ctx c, int x0, int z0, int W, int D, int F, int fh, boolean noLiftZone, int lx1, int lx2, int lz1, int lz2) {
         for (int f = 0; f < F; f++) {
             int y0 = f * fh;
             int bx = x0 + 2, bz = z0 + 2;
@@ -196,7 +196,7 @@ public final class NeroPlanner {
     }
 
     // ------------------------------------------------------------------ дом
-    private static void house(Ctx c, NeroSpec s) {
+    static void house(Ctx c, NeroSpec s) {
         Pal p = pal(s.style);
         int W = s.w > 0 ? clamp(s.w, 9, 31) : 13, D = s.d > 0 ? clamp(s.d, 9, 31) : 11, F = clamp(s.floors == 0 ? 2 : s.floors, 1, 6), fh = 5;
         boolean lift = s.extras.contains("lift") && F >= 2;
@@ -496,7 +496,7 @@ public final class NeroPlanner {
     }
 
     // ------------------------------------------------------------------ сигнализация
-    private static void alarm(Ctx c, int x, int z, int radius, int... dep) {
+    static void alarm(Ctx c, int x, int z, int radius, int... dep) {
         String id = c.nextId();
         int el = c.begin("Сигнализация", "mechanism", "Чужой игрок в радиусе " + radius, "Сирена, надпись, подсветка чужих", dep);
         for (int y = 0; y < 3; y++) c.set(x, y, z, Blocks.IRON_BLOCK);
@@ -562,8 +562,10 @@ public final class NeroPlanner {
             case "weather" -> rig(c, "weather", 0, 0, 0, "Метеопанель", "/trigger go", "Погода и время", new int[]{1});
             case "homes" -> rig(c, "homes", 0, 0, 0, "Система домов", "/trigger", "Личные точки дома", new int[]{1});
             case "lamps" -> rig(c, "lamps", 0, 0, 0, "Умные фонари", "Ночь", "Включаются ночью", new int[]{s.len > 0 ? s.len : 6, 4});
+            case "custom" -> NeroFree.custom(c, s);
             default -> { }
         }
+        NeroFree.finish(c);
         pl.computeBounds();
         return pl;
     }

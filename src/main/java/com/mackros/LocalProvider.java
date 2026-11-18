@@ -53,7 +53,7 @@ public final class LocalProvider implements AIProvider {
     @Override
     public CompletableFuture<NeroResponse> process(NeroRequest r) { return CompletableFuture.completedFuture(parse(r)); }
 
-    private static String norm(String s) { return s.toLowerCase(Locale.ROOT).replace('ё', 'е'); }
+    static String norm(String s) { return s.toLowerCase(Locale.ROOT).replace('ё', 'е'); }
 
     static String kindOf(String t) {
         for (String[] k : KINDS) if (Pattern.compile(k[1]).matcher(t).find()) return k[0];
@@ -148,6 +148,8 @@ public final class LocalProvider implements AIProvider {
         NeroSpec cur = r.current == null ? null : r.current.copy();
         String pending = r.pending;
         String kind = kindOf(t);
+        NeroResponse cr = custom(r, t, cur, kind);
+        if (cr != null) return cr;
         boolean fresh = kind != null && (cur == null || explicitNew(t) || (pending == null && !isModification(t)) || (!kind.equals(cur.kind) && !isModification(t)));
         StringBuilder reply = new StringBuilder();
 
@@ -213,6 +215,35 @@ public final class LocalProvider implements AIProvider {
         if (q != null) return new NeroResponse(true, cur, reply + q, nextPending, null, "Локальный");
         reply.append("Проект готов: ").append(cur.summary()).append(". Нажми «Предпросмотр» или «Построить».");
         return new NeroResponse(true, cur, reply.toString(), null, null, "Локальный");
+    }
+
+    /** Свободная постройка без интернета: здание + любые механизмы по ключевым словам. Возвращает null, если подходит обычный шаблон. */
+    private static NeroResponse custom(NeroRequest r, String t, NeroSpec cur, String kind) {
+        boolean mech = NeroFree.has(t, "принтер|3d|3д|ферм|турел|телепорт|сейф|кодов|шоу|купол|конвейер|эскалатор|погод|автобур|шахтер|арен|сигнализ|ворот|гараж|бассейн|лифт");
+        boolean base = NeroFree.has(t, "баз[аыуе]|комплекс|штаб|лаборатор|центр|резиденц|умн\\w* дом");
+        boolean houseMulti = "house".equals(kind) && NeroFree.has(t, "ферм|турел|телепорт|сейф|кодов|шоу|купол|принтер|3d|3д|конвейер|погод|шахтер|арен|умн");
+        boolean nextCustom = cur != null && cur.kind.equals("custom") && !explicitNew(t);
+        boolean wants = base || houseMulti || NeroFree.has(t, "принтер|3d|3д") || (kind == null && cur == null && (mech || NeroFree.wantsBuilding(t)));
+        if (!wants && !nextCustom) return null;
+        NeroSpec s;
+        if (nextCustom) {
+            s = cur.copy();
+            s.desc = s.desc + " " + t;
+            s.bp = null;
+        } else {
+            s = new NeroSpec();
+            s.kind = "custom";
+            s.desc = t;
+            s.seed = new java.util.Random().nextLong() | 1L;
+        }
+        applyDetails(t, s);
+        java.util.List<String> f = NeroFree.features(s.desc);
+        boolean bld = NeroFree.wantsBuilding(s.desc);
+        s.name = (bld ? "Постройка" : "Установка") + (f.isEmpty() ? "" : ": " + String.join(", ", f));
+        if (s.name.length() > 60) s.name = s.name.substring(0, 60);
+        String rp = (nextCustom ? "Обновил свободный проект. " : "Собрал свободный проект локально. ") + "Состав: " + (bld ? "здание" : "без здания") + (f.isEmpty() ? "" : ", " + String.join(", ", f))
+                + ". Нажми «Предпросмотр» или «Построить». Справа от стройки будут пульт с кнопками и командный отсек.";
+        return new NeroResponse(true, s, rp, null, null, "Локальный");
     }
 
     private static int defaultFloors(String kind) {

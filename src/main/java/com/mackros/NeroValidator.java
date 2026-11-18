@@ -108,7 +108,7 @@ public final class NeroValidator {
                 else volume(t, 1, c, err);
             }
             case "clone" -> {
-                if (t.length < 11) err.add("clone: мало аргументов: " + shortCmd(c));
+                if (t.length < 10) err.add("clone: мало аргументов: " + shortCmd(c));
                 else volume(t, 1, c, err);
             }
             case "tp", "teleport" -> { if (t.length < 2) err.add("tp: мало аргументов"); }

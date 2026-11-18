@@ -30,6 +30,8 @@ public final class NeroBuildPlan {
     public final List<Element> elements = new ArrayList<>();
     public final List<String> help = new ArrayList<>();
     public final List<String> notes = new ArrayList<>();
+    /** Кнопки пульта: {подпись, команда1, команда2...}. */
+    public final List<String[]> controls = new ArrayList<>();
     public final Map<String, String> ids = new HashMap<>();
     public int minX, minY, minZ, maxX, maxY, maxZ;
 

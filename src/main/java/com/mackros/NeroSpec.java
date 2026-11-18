@@ -12,7 +12,7 @@ import java.util.Set;
 public final class NeroSpec {
     public static final List<String> KINDS = List.of("house", "tower", "hotel", "bunker", "castle", "road", "bridge", "tunnel", "parking",
             "station", "airport", "warehouse", "factory", "secret", "alarm", "lift", "tele", "gate", "gate_key", "vault", "farm", "miner",
-            "sentry", "dome", "wave", "belt", "show", "weather", "homes", "lamps");
+            "sentry", "dome", "wave", "belt", "show", "weather", "homes", "lamps", "custom");
     public static final List<String> STYLES = List.of("modern", "medieval", "futuristic");
     public static final List<String> EXTRAS = List.of("garage", "pool", "lighting", "autogate", "lift", "furniture", "alarm");
     public static final List<String> SIDES = List.of("left", "right", "back");
@@ -24,6 +24,9 @@ public final class NeroSpec {
     public final Set<String> extras = new LinkedHashSet<>();
     public boolean askedStyle = false, askedExtras = false;
     public long seed = 0;
+    /** Свободная постройка: исходное описание, название и чертёж ИИ (может быть null: тогда локальный композитор). */
+    public String desc = "", name = "";
+    public JsonObject bp = null;
 
     public NeroSpec copy() {
         NeroSpec s = new NeroSpec();
@@ -31,6 +34,7 @@ public final class NeroSpec {
         s.floors = floors; s.w = w; s.d = d; s.len = len; s.code = code; s.copies = copies;
         s.extras.addAll(extras);
         s.askedStyle = askedStyle; s.askedExtras = askedExtras; s.seed = seed;
+        s.desc = desc; s.name = name; s.bp = bp;
         return s;
     }
 
@@ -57,6 +61,11 @@ public final class NeroSpec {
         JsonArray a = new JsonArray();
         for (String e : extras) a.add(e);
         o.add("extras", a);
+        if (kind.equals("custom")) {
+            o.addProperty("desc", desc);
+            o.addProperty("name", name);
+            if (bp != null) o.add("blueprint", bp);
+        }
         return o;
     }
 
@@ -71,6 +80,13 @@ public final class NeroSpec {
             if (!KINDS.contains(k)) return null;
             NeroSpec s = new NeroSpec();
             s.kind = k;
+            if (k.equals("custom")) {
+                if (o.has("desc") && !o.get("desc").isJsonNull()) s.desc = o.get("desc").getAsString();
+                if (o.has("name") && !o.get("name").isJsonNull()) s.name = o.get("name").getAsString();
+                if (s.name.length() > 60) s.name = s.name.substring(0, 60);
+                if (o.has("blueprint") && o.get("blueprint").isJsonObject()) s.bp = o.getAsJsonObject("blueprint");
+                else if (o.has("ops") || o.has("mechs") || o.has("chains")) s.bp = o;
+            }
             if (o.has("style") && !o.get("style").isJsonNull()) {
                 String st = o.get("style").getAsString().trim().toLowerCase();
                 if (STYLES.contains(st)) s.style = st;
@@ -106,7 +122,8 @@ public final class NeroSpec {
             case "tele" -> "Сеть телепортов"; case "gate" -> "Автоворота"; case "gate_key" -> "Ворота по ключу"; case "vault" -> "Кодовый замок";
             case "farm" -> "Автоферма"; case "miner" -> "Автобур"; case "sentry" -> "Турель"; case "dome" -> "Купол";
             case "wave" -> "Арена волн"; case "belt" -> "Конвейер"; case "show" -> "Световое шоу"; case "weather" -> "Метеопанель";
-            case "homes" -> "Система домов"; case "lamps" -> "Умные фонари"; default -> k;
+            case "homes" -> "Система домов"; case "lamps" -> "Умные фонари"; case "custom" -> "Свободная постройка";
+            default -> k;
         };
     }
 
@@ -138,5 +155,5 @@ public final class NeroSpec {
         return b.toString();
     }
 
-    public String title() { return kindRu(kind) + (style != null ? " (" + styleRu(style) + ")" : ""); }
+    public String title() { return (kind.equals("custom") && !name.isEmpty() ? name : kindRu(kind)) + (style != null ? " (" + styleRu(style) + ")" : ""); }
 }

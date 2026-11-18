@@ -261,7 +261,10 @@ public final class NeroBuilder {
         if (w.getBlockEntity(p) instanceof CommandBlockBlockEntity be) {
             be.getCommandExecutor().setCommand(c.cmd());
             be.setAuto(c.auto());
+            if (be.getCommandExecutor().getCommand().isEmpty()) be.getCommandExecutor().setCommand(c.cmd());
             be.markDirty();
+            BlockState now = w.getBlockState(p);
+            w.updateListeners(p, now, now, 3);
         }
     }
 

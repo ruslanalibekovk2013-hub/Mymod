@@ -1,0 +1,527 @@
+package com.mackros;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
+import net.minecraft.block.FacingBlock;
+import net.minecraft.block.WallMountedBlock;
+import net.minecraft.registry.Registries;
+import net.minecraft.state.property.Property;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.world.EmptyBlockView;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import static com.mackros.NeroSpec.clamp;
+
+/**
+ * Свободная постройка: (1) интерпретатор «чертежа» от внешнего ИИ (примитивы + готовые механизмы Rig + свои цепочки КБ + кнопки),
+ * (2) локальный композитор (без интернета собирает здание + любые механизмы по ключевым словам),
+ * (3) 3D-принтер, (4) стена управления и командный отсек рядом с постройкой.
+ */
+public final class NeroFree {
+    private static final Set<String> BANNED = Set.of("minecraft:command_block", "minecraft:chain_command_block", "minecraft:repeating_command_block",
+            "minecraft:structure_block", "minecraft:jigsaw", "minecraft:spawner", "minecraft:barrier");
+    private static final Pattern PH = Pattern.compile("\\{([xyz])([+-]\\d+)?\\}|\\{id\\}");
+
+    public static boolean has(String t, String re) { return Pattern.compile(re).matcher(t).find(); }
+
+    // ------------------------------------------------------------------ разбор блоков
+    private static <T extends Comparable<T>> BlockState with(BlockState s, Property<T> p, String v) {
+        return p.parse(v).map(x -> s.with(p, x)).orElse(s);
+    }
+
+    public static BlockState state(String s) {
+        if (s == null) return null;
+        s = s.trim();
+        String props = null;
+        int b = s.indexOf('[');
+        if (b > 0 && s.endsWith("]")) { props = s.substring(b + 1, s.length() - 1); s = s.substring(0, b); }
+        if (!s.contains(":")) s = "minecraft:" + s;
+        if (BANNED.contains(s)) return null;
+        Identifier id = Identifier.tryParse(s);
+        if (id == null || !Registries.BLOCK.containsId(id)) return null;
+        BlockState st = Registries.BLOCK.get(id).getDefaultState();
+        if (props != null)
+            for (String kv : props.split(",")) {
+                String[] p = kv.split("=", 2);
+                if (p.length < 2) continue;
+                Property<?> pr = st.getBlock().getStateManager().getProperty(p[0].trim());
+                if (pr != null) st = with(st, pr, p[1].trim());
+            }
+        return st;
+    }
+
+    private static int gi(JsonObject o, String k, int d, int lo, int hi) {
+        try { if (o.has(k) && !o.get(k).isJsonNull()) return clamp((int) Math.round(o.get(k).getAsDouble()), lo, hi); } catch (Exception ignored) { }
+        return d;
+    }
+
+    private static String gs(JsonObject o, String k) {
+        try { return o.has(k) && !o.get(k).isJsonNull() ? o.get(k).getAsString() : null; } catch (Exception e) { return null; }
+    }
+
+    private static JsonArray arr(JsonObject o, String k) {
+        return o.has(k) && o.get(k).isJsonArray() ? o.getAsJsonArray(k) : new JsonArray();
+    }
+
+    static String sub(String s, BlockPos b, String id) {
+        Matcher m = PH.matcher(s);
+        StringBuilder sb = new StringBuilder();
+        while (m.find()) {
+            String r;
+            if (m.group().equals("{id}")) r = id;
+            else {
+                int off = m.group(2) == null ? 0 : Integer.parseInt(m.group(2));
+                int base = switch (m.group(1)) { case "x" -> b.getX(); case "y" -> b.getY(); default -> b.getZ(); };
+                r = String.valueOf(base + off);
+            }
+            m.appendReplacement(sb, Matcher.quoteReplacement(r));
+        }
+        m.appendTail(sb);
+        return sb.toString().trim();
+    }
+
+    private static String esc(String s) {
+        String r = s == null ? "" : s.replace("\\", "/").replace("\"", "'").replace("\n", " ");
+        return r.length() > 200 ? r.substring(0, 200) : r;
+    }
+
+    private static String fd(double v) { return String.format(Locale.ROOT, "%.1f", v); }
+
+    // ------------------------------------------------------------------ сетка чертежа
+    private record Cell(int x, int y, int z, BlockState s) { }
+
+    private static final class Grid {
+        final LinkedHashMap<Long, Cell> m = new LinkedHashMap<>();
+
+        void put(int x, int y, int z, BlockState s) {
+            if (m.size() > 45000 || Math.abs(x) > 200 || Math.abs(z) > 200 || y < -64 || y > 300) return;
+            long k = (((long) (x + 512)) << 22) | (((long) (y + 512)) << 11) | (z + 512);
+            m.put(k, new Cell(x, y, z, s));
+        }
+
+        /** Прозрачные/неполные блоки (двери, лестницы, факелы, кнопки) ставятся после полных, чтобы не отваливались. */
+        void emit(NeroPlanner.Ctx c) {
+            for (Cell k : m.values()) {
+                boolean full = k.s().isAir() || k.s().isFullCube(EmptyBlockView.INSTANCE, BlockPos.ORIGIN);
+                c.put(k.x(), k.y(), k.z(), k.s(), full ? 1 : 2);
+            }
+        }
+    }
+
+    private static void op(Grid g, JsonObject o) {
+        String t = gs(o, "op");
+        t = t == null ? "box" : t.toLowerCase(Locale.ROOT);
+        BlockState st = state(gs(o, "block"));
+        if (st == null) return;
+        switch (t) {
+            case "set" -> g.put(gi(o, "x", 0, -200, 200), gi(o, "y", 0, -64, 300), gi(o, "z", 0, -200, 200), st);
+            case "box", "fill", "walls", "hollow" -> {
+                int x1 = gi(o, "x1", 0, -200, 200), x2 = gi(o, "x2", x1, -200, 200);
+                int y1 = gi(o, "y1", 0, -64, 300), y2 = gi(o, "y2", y1, -64, 300);
+                int z1 = gi(o, "z1", 0, -200, 200), z2 = gi(o, "z2", z1, -200, 200);
+                int ax = Math.min(x1, x2), bx = Math.max(x1, x2), ay = Math.min(y1, y2), by = Math.max(y1, y2), az = Math.min(z1, z2), bz = Math.max(z1, z2);
+                if ((long) (bx - ax + 1) * (by - ay + 1) * (bz - az + 1) > 60000) return;
+                String mode = gs(o, "mode");
+                if (mode == null) mode = t;
+                boolean hollow = mode.equals("hollow"), walls = mode.equals("walls");
+                for (int y = ay; y <= by; y++)
+                    for (int x = ax; x <= bx; x++)
+                        for (int z = az; z <= bz; z++) {
+                            boolean ex = x == ax || x == bx, ey = y == ay || y == by, ez = z == az || z == bz;
+                            if (hollow && !(ex || ey || ez)) continue;
+                            if (walls && !(ex || ez)) continue;
+                            g.put(x, y, z, st);
+                        }
+            }
+            case "cylinder", "cyl" -> {
+                int cx = gi(o, "cx", 0, -200, 200), cz = gi(o, "cz", 0, -200, 200), r = gi(o, "r", 3, 1, 40);
+                int y1 = gi(o, "y1", 0, -64, 300), y2 = gi(o, "y2", y1, -64, 300);
+                boolean hollow = o.has("hollow") && o.get("hollow").getAsBoolean();
+                for (int y = Math.min(y1, y2); y <= Math.max(y1, y2); y++)
+                    for (int dx = -r; dx <= r; dx++)
+                        for (int dz = -r; dz <= r; dz++) {
+                            int d2 = dx * dx + dz * dz;
+                            if (d2 > r * r + r) continue;
+                            boolean edge = d2 > (r - 1) * (r - 1) + (r - 1);
+                            if (hollow && !edge && y != Math.min(y1, y2) && y != Math.max(y1, y2)) continue;
+                            g.put(cx + dx, y, cz + dz, st);
+                        }
+            }
+            case "sphere" -> {
+                int cx = gi(o, "cx", 0, -200, 200), cy = gi(o, "cy", 0, -64, 300), cz = gi(o, "cz", 0, -200, 200), r = gi(o, "r", 3, 1, 30);
+                boolean hollow = o.has("hollow") && o.get("hollow").getAsBoolean();
+                for (int dx = -r; dx <= r; dx++)
+                    for (int dy = -r; dy <= r; dy++)
+                        for (int dz = -r; dz <= r; dz++) {
+                            int d2 = dx * dx + dy * dy + dz * dz;
+                            if (d2 > r * r + r) continue;
+                            if (hollow && d2 <= (r - 1) * (r - 1) + (r - 1)) continue;
+                            g.put(cx + dx, cy + dy, cz + dz, st);
+                        }
+            }
+            case "line" -> {
+                int x1 = gi(o, "x1", 0, -200, 200), y1 = gi(o, "y1", 0, -64, 300), z1 = gi(o, "z1", 0, -200, 200);
+                int x2 = gi(o, "x2", x1, -200, 200), y2 = gi(o, "y2", y1, -64, 300), z2 = gi(o, "z2", z1, -200, 200);
+                int n = Math.max(Math.abs(x2 - x1), Math.max(Math.abs(y2 - y1), Math.abs(z2 - z1)));
+                for (int i = 0; i <= n; i++) {
+                    double f = n == 0 ? 0 : (double) i / n;
+                    g.put((int) Math.round(x1 + (x2 - x1) * f), (int) Math.round(y1 + (y2 - y1) * f), (int) Math.round(z1 + (z2 - z1) * f), st);
+                }
+            }
+            case "pyramid" -> {
+                int x1 = gi(o, "x1", 0, -200, 200), x2 = gi(o, "x2", x1, -200, 200), z1 = gi(o, "z1", 0, -200, 200), z2 = gi(o, "z2", z1, -200, 200), y = gi(o, "y", 0, -64, 300);
+                int ax = Math.min(x1, x2), bx = Math.max(x1, x2), az = Math.min(z1, z2), bz = Math.max(z1, z2);
+                for (int k = 0; ax + k <= bx - k && az + k <= bz - k; k++)
+                    for (int x = ax + k; x <= bx - k; x++)
+                        for (int z = az + k; z <= bz - k; z++) g.put(x, y + k, z, st);
+            }
+            default -> { }
+        }
+    }
+
+    // ------------------------------------------------------------------ чертёж ИИ
+    public static void custom(NeroPlanner.Ctx c, NeroSpec s) {
+        if (s.bp != null) blueprint(c, s.bp); else compose(c, s);
+    }
+
+    static void blueprint(NeroPlanner.Ctx c, JsonObject bp) {
+        String bid = c.nextId();
+        int main = c.begin("Чертёж: конструкция", "structure", "-", "Блоки по чертежу");
+        Grid g = new Grid();
+        int n = 0;
+        for (JsonElement e : arr(bp, "ops")) { if (++n > 600) break; if (e.isJsonObject()) op(g, e.getAsJsonObject()); }
+        g.emit(c);
+        n = 0;
+        for (JsonElement e : arr(bp, "mechs")) {
+            if (++n > 12 || !e.isJsonObject()) continue;
+            JsonObject o = e.getAsJsonObject();
+            String key = gs(o, "key");
+            Rig.Def d = null;
+            for (Rig.Def x : Rig.ALL) if (x.key().equals(key)) d = x;
+            if (d == null) continue;
+            JsonArray pa = arr(o, "params");
+            int[] p = new int[pa.size()];
+            for (int i = 0; i < p.length; i++) try { p[i] = pa.get(i).getAsInt(); } catch (Exception ex) { p[i] = d.df()[Math.min(i, d.df().length - 1)]; }
+            String nm = gs(o, "name");
+            NeroPlanner.rig(c, key, gi(o, "x", 0, -200, 200), gi(o, "y", 0, -64, 300), gi(o, "z", 0, -200, 200), nm == null ? d.name() : nm,
+                    "Кнопки на пульте управления", d.desc(), p, main);
+        }
+        n = 0;
+        int total = 0;
+        for (JsonElement e : arr(bp, "chains")) {
+            if (++n > 12 || !e.isJsonObject()) continue;
+            JsonObject o = e.getAsJsonObject();
+            List<String> cmds = new ArrayList<>();
+            for (JsonElement ce : arr(o, "commands")) {
+                if (cmds.size() >= 90 || ++total > 400) break;
+                String cm = sub(ce.getAsString(), c.base, bid);
+                if (cm.startsWith("/")) cm = cm.substring(1);
+                if (!cm.isBlank()) cmds.add(cm);
+            }
+            if (cmds.isEmpty()) continue;
+            String nm = gs(o, "name");
+            int el = c.begin(nm == null ? "Логика" : nm, "mechanism", "Командные блоки", "Логика из чертежа", main);
+            c.chain(cmds, el);
+        }
+        n = 0;
+        for (JsonElement e : arr(bp, "setup")) {
+            if (++n > 60) break;
+            String cm = sub(e.getAsString(), c.base, bid);
+            if (cm.startsWith("/")) cm = cm.substring(1);
+            if (!cm.isBlank()) c.pl.setup.add(cm);
+        }
+        n = 0;
+        for (JsonElement e : arr(bp, "buttons")) {
+            if (++n > 20 || !e.isJsonObject()) continue;
+            JsonObject o = e.getAsJsonObject();
+            String label = gs(o, "label"), cmd = gs(o, "command");
+            if (label == null || cmd == null) continue;
+            List<String> row = new ArrayList<>();
+            row.add(esc(label));
+            for (String part : sub(cmd, c.base, bid).split("\n")) { String q = part.trim(); if (q.startsWith("/")) q = q.substring(1); if (!q.isEmpty() && row.size() < 5) row.add(q); }
+            if (row.size() > 1) c.pl.controls.add(row.toArray(new String[0]));
+        }
+        String help = gs(bp, "help");
+        if (help != null) c.pl.help.add(esc(help));
+    }
+
+    // ------------------------------------------------------------------ локальный композитор
+    public static List<String> features(String t) {
+        List<String> f = new ArrayList<>();
+        String[][] x = {{"лифт|подъемник", "лифт"}, {"принтер|3d|3д", "3D-принтер"}, {"ворот|шлагбаум", "автоворота"}, {"гараж", "гараж"}, {"бассейн", "бассейн"},
+                {"сигнализ", "сигнализация"}, {"ферм|огород", "автоферма"}, {"турел", "турель"}, {"купол", "купол"}, {"телепорт", "телепорты"}, {"сейф|кодов\\w* замок|код", "кодовый замок"},
+                {"конвейер|эскалатор|траволатор", "конвейер"}, {"шоу|фейерверк", "световое шоу"}, {"погод|метео", "метеопанель"}, {"арен|волн\\w* мобов", "арена волн"},
+                {"бур\\b|автобур|шахтер|добыч", "автобур"}, {"фонар|освещ", "умные фонари"}, {"точк\\w* дом|систем\\w* дом", "точки дома"}};
+        for (String[] a : x) if (has(t, a[0])) f.add(a[1]);
+        return f;
+    }
+
+    public static boolean wantsBuilding(String t) {
+        return has(t, "баз[аыуе]|комплекс|штаб|лаборатор|центр|резиденц|дом|здани|башн|небоскр|вилл|особняк|коттедж|отел|офис|убежищ|ангар|склад");
+    }
+
+    private static void compose(NeroPlanner.Ctx c, NeroSpec s) {
+        String t = LocalProvider.norm((s.desc == null || s.desc.isEmpty()) ? s.name : s.desc);
+        boolean big = has(t, "баз[аыуе]|комплекс|штаб|лаборатор|центр|резиденц");
+        boolean bld = big || wantsBuilding(t);
+        boolean wLift = has(t, "лифт|подъемник"), wPrint = has(t, "принтер|3d|3д"), wGate = has(t, "ворот|шлагбаум"), wGarage = has(t, "гараж"),
+                wPool = has(t, "бассейн"), wAlarm = has(t, "сигнализ"), wFarm = has(t, "ферм|огород"), wSentry = has(t, "турел"), wDome = has(t, "купол"),
+                wTele = has(t, "телепорт"), wVault = has(t, "сейф|кодов\\w* замок|код"), wBelt = has(t, "конвейер|эскалатор|траволатор"),
+                wShow = has(t, "шоу|фейерверк"), wWeather = has(t, "погод|метео"), wWave = has(t, "арен|волн\\w* мобов"),
+                wMiner = has(t, "бур\\b|автобур|шахтер|добыч"), wLamps = has(t, "фонар|освещ"), wHomes = has(t, "точк\\w* дом|систем\\w* дом");
+        boolean any = wLift || wPrint || wGate || wGarage || wPool || wAlarm || wFarm || wSentry || wDome || wTele || wVault || wBelt || wShow || wWeather || wWave || wMiner || wLamps || wHomes;
+        if (!bld && !any) { NeroPlanner.house(c, s); return; }
+        boolean fut = "futuristic".equals(s.style) || has(t, "футурист|будущ|космич|принтер|лаборатор|хай");
+        String style = s.style != null ? s.style : (fut ? "futuristic" : "modern");
+        NeroPlanner.Pal p = NeroPlanner.pal(style);
+        int W = 0, D = 0, F = 1, fh = 5, main = -1;
+        int speed = has(t, "быстр|продвин|скоростн|супер|самы") ? 3 : 2;
+        if (bld) {
+            W = s.w > 0 ? clamp(s.w, 9, 41) : (big ? 27 : 15);
+            D = s.d > 0 ? clamp(s.d, 9, 41) : (big ? 21 : 13);
+            F = s.floors > 0 ? clamp(s.floors, 1, 14) : (big ? 3 : (wLift ? 3 : 2));
+            main = NeroPlanner.shell(c, big ? "База: корпус" : "Здание: корпус", 0, 0, W, D, F, fh, p, "futuristic".equals(style), true, "medieval".equals(style));
+            c.open(W / 2 - 1, 0, 0, W / 2, 2, 0);
+            boolean lift = (wLift || big) && F >= 2;
+            if (F >= 2 && !lift) {
+                c.begin("Лестница", "structure", "-", "Лестница-стремянка между этажами", main);
+                for (int f = 0; f < F; f++) {
+                    if (f > 0) c.det(1, f * fh - 1, D - 2, Blocks.AIR);
+                    c.ladder(1, D - 2, f * fh, f * fh + fh - 1 + (f == F - 1 ? -1 : 0), Direction.NORTH);
+                }
+            }
+            c.begin("Мебель", "decor", "-", "Кровати, кухня, книги", main);
+            NeroPlanner.furnish(c, 0, 0, W, D, F, fh, lift, 0, 0, 0, 0);
+            if (lift) NeroPlanner.rig(c, "lift", W - 6, 0, D - 6, "Лифт", "Кнопки этажей на пульте, прыжок/присед в шахте", "Плавное перемещение между этажами", new int[]{F, fh, speed}, main);
+            if (wGate || big) NeroPlanner.rig(c, "gate", W / 2 - 2, 0, -4, "Въездные автоворота", "Игрок рядом с воротами", "Открывает решётку, закрывает когда рядом никого нет", new int[]{5, 4, 5}, main);
+            if (wGarage) {
+                int g = NeroPlanner.shell(c, "Гараж", W, 0, 7, D, 1, 5, p, false, true, false);
+                c.open(W - 1, 0, D / 2, W, 2, D / 2);
+                NeroPlanner.rig(c, "gate", W + 1, 0, 0, "Гараж: автоворота", "Игрок рядом с воротами", "Открывает решётку", new int[]{5, 3, 5}, g);
+            }
+            if (wAlarm) NeroPlanner.alarm(c, -3, D / 2, 16, main);
+            if (wPool) {
+                c.begin("Бассейн", "structure", "-", "Яма с водой, облицовка кварцем, подсветка", main);
+                c.carve(0, 0, D + 2, 8, 3, D + 9);
+                c.box(0, -4, D + 2, 8, -4, D + 9, Blocks.SMOOTH_QUARTZ);
+                c.ring(0, -4, D + 2, 8, -1, D + 9, Blocks.SMOOTH_QUARTZ);
+                c.box(1, -3, D + 3, 7, -1, D + 8, Blocks.WATER);
+                c.det(1, -3, D + 3, Blocks.SEA_LANTERN);
+                c.det(7, -3, D + 8, Blocks.SEA_LANTERN);
+            }
+        } else if (wAlarm) NeroPlanner.alarm(c, 0, 0, 14);
+        int[] dep = main >= 0 ? new int[]{main} : new int[0];
+        int ex = 0, ez = bld ? D + 12 : 0;
+        if (!bld && wLift) { NeroPlanner.rig(c, "lift", ex, 0, ez, "Лифт", "Кнопки этажей на пульте, прыжок/присед в шахте", "Плавное перемещение между этажами", new int[]{s.floors > 0 ? s.floors : 8, 6, speed}); ex += 12; }
+        if (!bld && (wGate)) { NeroPlanner.rig(c, "gate", ex, 0, ez, "Автоворота", "Игрок рядом", "Открывает решётку", new int[]{5, 4, 5}); ex += 10; }
+        if (wPrint) { printer(c, ex + 14, ez); ex += 28; }
+        int code = s.code >= 1000 ? s.code : 1234;
+        if (wFarm) { NeroPlanner.rig(c, "farm", ex, 0, ez, "Автоферма", "Таймер", "Рост, сбор, пересадка, сундук", new int[]{1, 4, 30}, dep); ex += 16; }
+        if (wSentry) { NeroPlanner.rig(c, "sentry", ex, 0, ez, "Турель", "Враги в радиусе", "Урон враждебным мобам", new int[]{12, 6, 10}, dep); ex += 10; }
+        if (wDome) { NeroPlanner.rig(c, "dome", ex, 0, ez, "Защитный купол", "Таймер", "Лечение, удаление врагов", new int[]{10}, dep); ex += 26; }
+        if (wTele) { NeroPlanner.rig(c, "tele", ex, 0, ez, "Сеть телепортов", "Прыжок/присед на площадке", "Перенос между площадками", new int[]{4, 12}, dep); ex += 16; }
+        if (wVault) { NeroPlanner.rig(c, "vault", ex, 0, ez, "Кодовый замок", "Кнопка «Ввести код» на пульте", "Открывает дверь на 5 секунд", new int[]{code / 1000 % 10, code / 100 % 10, code / 10 % 10, code % 10}, dep); ex += 10; c.pl.help.add("Код замка: " + code); }
+        if (wBelt) { NeroPlanner.rig(c, "belt", ex, 0, ez, "Конвейер", "Кнопка «Реверс» на пульте", "Двигает всё вдоль ленты", new int[]{16, 2, 2}, dep); ex += 22; }
+        if (wShow) { NeroPlanner.rig(c, "show", ex, 0, ez, "Световое шоу", "Кнопки на пульте", "Сценарий из 10 сцен", new int[]{8}, dep); ex += 12; }
+        if (wWeather) { NeroPlanner.rig(c, "weather", ex, 0, ez, "Метеопанель", "Кнопки на пульте", "Погода и время", new int[]{1}, dep); ex += 8; }
+        if (wWave) { NeroPlanner.rig(c, "wave", ex, 0, ez, "Арена волн", "Кнопки на пульте", "Волны мобов", new int[]{30, 4, 7}, dep); ex += 36; }
+        if (wMiner) { NeroPlanner.rig(c, "miner", ex, 0, ez, "Автобур", "Кнопки на пульте", "Бурит вниз слоями", new int[]{32, 1}, dep); ex += 8; }
+        if (wLamps) { NeroPlanner.rig(c, "lamps", ex, 0, ez - 6, "Умные фонари", "Ночь", "Включаются ночью", new int[]{6, 4}, dep); ex += 12; }
+        if (wHomes) { NeroPlanner.rig(c, "homes", ex, 0, ez, "Система домов", "Кнопки на пульте", "Личные точки дома", new int[]{1}, dep); }
+    }
+
+    // ------------------------------------------------------------------ 3D-принтер
+    /** Принтер: стол 9x9x9 с рамой и печатной головкой + зона-образец слева. Игрок строит модель в зоне-образце, принтер копирует её на стол слой за слоем. */
+    static void printer(NeroPlanner.Ctx c, int ox, int oz) {
+        final int H = 9;
+        int sx = ox - 13;
+        String id = c.nextId();
+        String t = id + "_p";
+        int el = c.begin("3D-принтер", "mechanism", "Кнопки на пульте управления", "Печатает копию модели из зоны-образца на стол слой за слоем");
+        c.carve(ox - 1, 0, oz - 1, ox + 9, H + 2, oz + 9);
+        c.carve(sx - 1, 0, oz - 1, sx + 9, H + 2, oz + 9);
+        c.box(ox - 1, -1, oz - 1, ox + 9, -1, oz + 9, Blocks.POLISHED_BLACKSTONE);
+        c.box(ox, -1, oz, ox + 8, -1, oz + 8, Blocks.SMOOTH_STONE);
+        for (int[] k : new int[][]{{ox - 1, oz - 1}, {ox + 9, oz - 1}, {ox - 1, oz + 9}, {ox + 9, oz + 9}}) {
+            c.box(k[0], 0, k[1], k[0], H + 1, k[1], Blocks.IRON_BLOCK);
+            c.set(k[0], H + 2, k[1], Blocks.SEA_LANTERN);
+        }
+        c.ring(ox - 1, H + 1, oz - 1, ox + 9, H + 1, oz + 9, Blocks.IRON_BLOCK);
+        for (int x = ox; x <= ox + 8; x++) c.set(x, H + 1, oz + 4, Blocks.IRON_BARS);
+        c.set(ox + 4, H + 1, oz + 4, Blocks.GRAY_CONCRETE);
+        c.det(ox + 4, H, oz + 4, Blocks.END_ROD.getDefaultState().with(FacingBlock.FACING, Direction.DOWN));
+        c.box(sx - 1, -1, oz - 1, sx + 9, -1, oz + 9, Blocks.QUARTZ_BLOCK);
+        for (int[] k : new int[][]{{sx - 1, oz - 1}, {sx + 9, oz - 1}, {sx - 1, oz + 9}, {sx + 9, oz + 9}}) {
+            c.box(k[0], 0, k[1], k[0], H - 1, k[1], Blocks.CYAN_STAINED_GLASS);
+            c.set(k[0], H, k[1], Blocks.SEA_LANTERN);
+        }
+        int X = c.base.getX(), Y = c.base.getY(), Z = c.base.getZ(), cur = c.el;
+        String tag = c.pl.entityTag;
+        c.pl.setup.add("scoreboard objectives add " + t + " dummy");
+        c.pl.setup.add("scoreboard players set #on " + t + " 0");
+        c.pl.setup.add("scoreboard players set #l " + t + " 0");
+        c.pl.setup.add("scoreboard players set #t " + t + " 0");
+        c.pl.setup.add("summon minecraft:text_display " + fd(X + sx + 4.5) + " " + fd(Y + H + 1.5) + " " + fd(Z + oz + 4.5)
+                + " {text:'{\"text\":\"ЗОНА-ОБРАЗЕЦ 9x9x9: построй здесь модель\",\"color\":\"aqua\"}',billboard:\"center\",Tags:[\"" + tag + "\"]}");
+        c.pl.setup.add("summon minecraft:text_display " + fd(X + ox + 4.5) + " " + fd(Y + H + 3.5) + " " + fd(Z + oz + 4.5)
+                + " {text:'{\"text\":\"3D-ПРИНТЕР\",\"color\":\"gold\"}',billboard:\"center\",Tags:[\"" + tag + "\"]}");
+        List<String> cm = new ArrayList<>();
+        cm.add("execute if score #on " + t + " matches 1 run scoreboard players add #t " + t + " 1");
+        for (int y = 0; y < H; y++) {
+            String g = "execute if score #on " + t + " matches 1 if score #t " + t + " matches 6 if score #l " + t + " matches " + y;
+            cm.add(g + " run clone " + (X + sx) + " " + (Y + y) + " " + (Z + oz) + " " + (X + sx + 8) + " " + (Y + y) + " " + (Z + oz + 8) + " " + (X + ox) + " " + (Y + y) + " " + (Z + oz));
+            cm.add(g + " run particle minecraft:end_rod " + (X + ox + 4) + " " + (Y + y + 1) + " " + (Z + oz + 4) + " 3 0.2 3 0.02 30");
+        }
+        cm.add("execute if score #on " + t + " matches 1 if score #t " + t + " matches 6.. run scoreboard players add #l " + t + " 1");
+        cm.add("execute if score #on " + t + " matches 1 if score #t " + t + " matches 6.. run scoreboard players set #t " + t + " 0");
+        cm.add("execute if score #l " + t + " matches " + H + ".. run tellraw @a[distance=..60] {\"text\":\"3D-принтер: печать завершена\",\"color\":\"green\"}");
+        cm.add("execute if score #l " + t + " matches " + H + ".. run scoreboard players set #on " + t + " 0");
+        cm.add("execute if score #l " + t + " matches " + H + ".. run scoreboard players set #l " + t + " 0");
+        c.chain(cm, el);
+        c.pl.ids.put("printer@" + el, id);
+        c.pl.controls.add(new String[]{"Печать: старт", "scoreboard players set #l " + t + " 0", "scoreboard players set #t " + t + " 0", "scoreboard players set #on " + t + " 1"});
+        c.pl.controls.add(new String[]{"Печать: стоп", "scoreboard players set #on " + t + " 0"});
+        c.pl.controls.add(new String[]{"Очистить стол", "fill " + (X + ox) + " " + Y + " " + (Z + oz) + " " + (X + ox + 8) + " " + (Y + H - 1) + " " + (Z + oz + 8) + " minecraft:air"});
+        c.pl.help.add("3D-принтер: построй модель в зоне-образце (слева от принтера, 9x9x9), нажми «Печать: старт» на пульте. Копия растёт на столе слой за слоем.");
+        c.el = cur;
+    }
+
+    // ------------------------------------------------------------------ командный отсек и стена управления
+    private static void blk(NeroBuildPlan pl, int el, int x, int y, int z, Block b, int stage) { pl.blocks.add(new NeroBuildPlan.Block(x, y, z, b.getDefaultState(), el, stage)); }
+
+    private static long k3(int x, int y, int z) { return ((long) x & 0x3FFFFFF) << 38 | ((long) z & 0x3FFFFFF) << 12 | ((long) y & 0xFFF); }
+
+    /** Вызывается планировщиком в конце: переносит командные блоки к постройке и строит пульт с кнопками. */
+    static void finish(NeroPlanner.Ctx c) {
+        NeroBuildPlan pl = c.pl;
+        int by = c.base.getY();
+        String tag = pl.entityTag;
+        int sMinX = Integer.MAX_VALUE, sMaxZ = Integer.MIN_VALUE, sMinZ = Integer.MAX_VALUE;
+        for (NeroBuildPlan.Block b : pl.blocks) {
+            if (b.st().isAir()) continue;
+            sMinX = Math.min(sMinX, b.x()); sMinZ = Math.min(sMinZ, b.z()); sMaxZ = Math.max(sMaxZ, b.z());
+        }
+        if (sMinX == Integer.MAX_VALUE) { sMinX = c.base.getX(); sMinZ = c.base.getZ(); sMaxZ = c.base.getZ(); }
+
+        // 1. командный отсек: рядом со зданием (позади), на поверхности, а не под землёй
+        if (!pl.cbs.isEmpty()) {
+            int cMinX = Integer.MAX_VALUE, cMinZ = Integer.MAX_VALUE, cMaxX = Integer.MIN_VALUE, cMaxZ = Integer.MIN_VALUE;
+            for (NeroBuildPlan.Cb k : pl.cbs) { cMinX = Math.min(cMinX, k.x()); cMinZ = Math.min(cMinZ, k.z()); cMaxX = Math.max(cMaxX, k.x()); cMaxZ = Math.max(cMaxZ, k.z()); }
+            int dx = sMinX - cMinX, dz = sMaxZ + 5 - cMinZ;
+            List<NeroBuildPlan.Cb> old = new ArrayList<>(pl.cbs);
+            pl.cbs.clear();
+            for (NeroBuildPlan.Cb k : old) pl.cbs.add(new NeroBuildPlan.Cb(k.x() + dx, by, k.z() + dz, k.f(), k.type(), k.auto(), k.cond(), k.cmd(), k.el()));
+            int bay = c.begin("Командный отсек", "structure", "-", "Платформа с командными блоками рядом со зданием");
+            int x1 = cMinX + dx - 1, x2 = cMaxX + dx + 1, z1 = cMinZ + dz - 1, z2 = cMaxZ + dz + 1;
+            for (int x = x1; x <= x2; x++)
+                for (int z = z1; z <= z2; z++) {
+                    blk(pl, bay, x, by - 1, z, Blocks.STONE_BRICKS, 1);
+                    blk(pl, bay, x, by + 1, z, Blocks.AIR, 0);
+                    blk(pl, bay, x, by + 2, z, Blocks.AIR, 0);
+                }
+            pl.setup.add("summon minecraft:text_display " + fd(x1 + 1.5) + " " + fd(by + 1.6) + " " + fd(z1 + 0.5)
+                    + " {text:'{\"text\":\"КОМАНДНЫЕ БЛОКИ: не ломать\",\"color\":\"red\"}',billboard:\"center\",Tags:[\"" + tag + "\"]}");
+        }
+
+        // 2. пульт управления
+        List<String[]> ctl = new ArrayList<>();
+        Map<Integer, String[]> byEl = new TreeMap<>();
+        for (Map.Entry<String, String> e : pl.ids.entrySet()) {
+            String[] kp = e.getKey().split("@");
+            if (kp.length != 2) continue;
+            try { byEl.put(Integer.parseInt(kp[1]), new String[]{kp[0], e.getValue()}); } catch (Exception ignored) { }
+        }
+        int lifts = 0, li = 0;
+        for (String[] v : byEl.values()) if (v[0].equals("lift")) lifts++;
+        for (Map.Entry<Integer, String[]> e : byEl.entrySet()) {
+            String key = e.getValue()[0], id = e.getValue()[1];
+            Map<String, Integer> meta = pl.elements.get(e.getKey()).meta();
+            String go = "scoreboard players set @p[distance=..30] " + id + "_go ";
+            switch (key) {
+                case "lift" -> {
+                    li++;
+                    int n = meta.getOrDefault("p0", 0);
+                    for (int k = 1; k <= Math.min(n, 14); k++) ctl.add(new String[]{(lifts > 1 ? "Л" + li + " " : "") + "Этаж " + k, go + k});
+                }
+                case "vault" -> {
+                    int code = meta.getOrDefault("p0", 0) * 1000 + meta.getOrDefault("p1", 0) * 100 + meta.getOrDefault("p2", 0) * 10 + meta.getOrDefault("p3", 0);
+                    ctl.add(new String[]{"Ввести код", "scoreboard players set @p[distance=..30] " + id + "_code " + code});
+                }
+                case "miner" -> { ctl.add(new String[]{"Бур: пуск", go + 1}); ctl.add(new String[]{"Бур: стоп", go + 2}); }
+                case "wave" -> { ctl.add(new String[]{"Арена: пуск", go + 1}); ctl.add(new String[]{"Арена: стоп", go + 2}); }
+                case "show" -> { ctl.add(new String[]{"Шоу: старт", go + 1}); ctl.add(new String[]{"Шоу: стоп", go + 2}); }
+                case "belt" -> ctl.add(new String[]{"Конвейер: реверс", go + 1});
+                case "weather" -> {
+                    String[] w = {"Ясно", "Дождь", "Гроза", "Утро", "День", "Полдень", "Вечер", "Ночь", "Полночь"};
+                    for (int k = 0; k < w.length; k++) ctl.add(new String[]{w[k], go + (k + 1)});
+                }
+                case "homes" -> {
+                    ctl.add(new String[]{"Запомнить дом", "scoreboard players set @p[distance=..30] " + id + "_hset 1"});
+                    ctl.add(new String[]{"Домой", "scoreboard players set @p[distance=..30] " + id + "_hgo 1"});
+                }
+                default -> { }
+            }
+        }
+        ctl.addAll(pl.controls);
+
+        StringBuilder menu = new StringBuilder("tellraw @a[distance=..30] [{\"text\":\"=== " + esc(pl.title) + " ===\\n\",\"color\":\"aqua\"}");
+        int hl = 0;
+        for (String h : pl.help) { if (hl++ >= 10) break; menu.append(",{\"text\":\"").append(esc(h)).append("\\n\",\"color\":\"white\"}"); }
+        menu.append(",{\"text\":\"Кнопки на стене рядом запускают механизмы.\",\"color\":\"gray\"}]");
+        ctl.add(0, new String[]{"Справка", menu.toString()});
+        while (ctl.size() > 32) ctl.remove(ctl.size() - 1);
+
+        int N = ctl.size(), cols = Math.min(8, N), rows = (N + 7) / 8;
+        int Xw = sMinX - 7, zs = sMinZ + 1;
+        int pe = c.begin("Пульт управления", "structure", "Кнопки на стене слева от постройки", "Командные блоки с кнопками: управление механизмами");
+        Set<Long> cell = new HashSet<>();
+        for (int i = 0; i < N; i++) {
+            int col = i % 8, row = i / 8, z = zs + 2 * col, y = by + 1 + 3 * row;
+            String[] cc = ctl.get(i);
+            int depth = cc.length;
+            for (int d = 0; d < depth; d++) cell.add(k3(Xw + d, y, z));
+        }
+        int top = by + rows * 3 + 1;
+        for (int y = by - 1; y <= top; y++)
+            for (int z = zs - 1; z <= zs + 2 * cols - 1; z++)
+                for (int x = Xw; x <= Xw + 4; x++) {
+                    if (cell.contains(k3(x, y, z))) continue;
+                    Block b = y == by - 1 ? Blocks.POLISHED_BLACKSTONE : (y == top ? Blocks.SEA_LANTERN : Blocks.BLACK_CONCRETE);
+                    blk(pl, pe, x, y, z, b, 1);
+                }
+        for (int x = Xw - 3; x < Xw; x++)
+            for (int z = zs - 1; z <= zs + 2 * cols - 1; z++) { blk(pl, pe, x, by - 1, z, Blocks.SMOOTH_STONE, 1); for (int y = by; y <= top + 1; y++) blk(pl, pe, x, y, z, Blocks.AIR, 0); }
+        pl.setup.add("summon minecraft:text_display " + fd(Xw - 0.9) + " " + fd(top + 1.6) + " " + fd(zs + cols) + " {text:'{\"text\":\"ПУЛЬТ УПРАВЛЕНИЯ\",\"color\":\"gold\"}',billboard:\"center\",Tags:[\"" + tag + "\"]}");
+        for (int i = 0; i < N; i++) {
+            int col = i % 8, row = i / 8, z = zs + 2 * col, y = by + 1 + 3 * row;
+            String[] cc = ctl.get(i);
+            String label = esc(cc[0]);
+            for (int d = 1; d < cc.length; d++)
+                pl.cbs.add(new NeroBuildPlan.Cb(Xw + d - 1, y, z, Direction.EAST, d == 1 ? NeroBuildPlan.CbType.IMPULSE : NeroBuildPlan.CbType.CHAIN, d != 1, false, cc[d], pe));
+            pl.cbs.add(new NeroBuildPlan.Cb(Xw + cc.length - 1, y, z, Direction.EAST, cc.length == 1 ? NeroBuildPlan.CbType.IMPULSE : NeroBuildPlan.CbType.CHAIN, cc.length != 1, false,
+                    "tellraw @a[distance=..30] {\"text\":\"▶ " + label + "\",\"color\":\"green\"}", pe));
+            pl.blocks.add(new NeroBuildPlan.Block(Xw - 1, y, z, Blocks.STONE_BUTTON.getDefaultState().with(WallMountedBlock.FACING, Direction.WEST), pe, 2));
+            pl.setup.add("summon minecraft:text_display " + fd(Xw - 0.9) + " " + fd(y + 1.0) + " " + fd(z + 0.5)
+                    + " {text:'{\"text\":\"" + label + "\",\"color\":\"aqua\"}',billboard:\"center\",Tags:[\"" + tag + "\"]}");
+        }
+        pl.help.add("Пульт управления: стена с кнопками слева от постройки, командный отсек позади неё.");
+    }
+
+    private NeroFree() { }
+}

@@ -9,8 +9,8 @@ import java.util.Properties;
 /** Настройки NERO AI. Файл config/mackros_nero.properties лежит только на твоём компьютере; ключ нигде не логируется. */
 public final class NeroConfig {
     public static boolean enabled = false;
-    public static String url = "", key = "", model = "";
-    public static int timeoutSec = 30, maxResponse = 20000, blocksPerTick = 300;
+    public static String url = OpenRouter.CHAT_URL, key = "", model = "auto";
+    public static int timeoutSec = 90, maxResponse = 200000, blocksPerTick = 300;
     public static final int MAX_OPS = 40000;
 
     private static Path file() { return FabricLoader.getInstance().getConfigDir().resolve("mackros_nero.properties"); }
@@ -27,10 +27,13 @@ public final class NeroConfig {
             try (var in = Files.newInputStream(f)) { p.load(in); }
             enabled = "1".equals(p.getProperty("enabled", "0"));
             url = p.getProperty("url", "").trim();
+            if (url.isEmpty()) url = OpenRouter.CHAT_URL;
             key = p.getProperty("key", "").trim();
             model = p.getProperty("model", "").trim();
-            timeoutSec = NeroSpec.clamp(geti(p, "timeoutSec", 30), 3, 120);
-            maxResponse = NeroSpec.clamp(geti(p, "maxResponse", 20000), 1000, 200000);
+            if (model.isEmpty()) model = "auto";
+            timeoutSec = NeroSpec.clamp(Math.max(90, geti(p, "timeoutSec", 90)), 3, 300);
+            maxResponse = NeroSpec.clamp(Math.max(120000, geti(p, "maxResponse", 200000)), 1000, 400000);
+            if (!key.isEmpty() && !p.containsKey("enabled")) enabled = true;
             blocksPerTick = NeroSpec.clamp(geti(p, "blocksPerTick", 300), 20, 2000);
         } catch (Exception ignored) { }
     }
@@ -49,7 +52,10 @@ public final class NeroConfig {
         } catch (Exception ignored) { }
     }
 
-    public static boolean remoteReady() { return enabled && !url.isEmpty() && (url.startsWith("https://") || url.startsWith("http://")); }
+    public static boolean isOpenRouter() { return url.contains("openrouter.ai"); }
+
+    /** Внешний ИИ готов: включён, адрес верный, для OpenRouter есть ключ (для локальных серверов ключ не нужен). */
+    public static boolean remoteReady() { return enabled && !url.isEmpty() && (url.startsWith("https://") || url.startsWith("http://")) && (!key.isEmpty() || !isOpenRouter()); }
 
     private NeroConfig() { }
 }

@@ -33,10 +33,10 @@ public class NeroSettingsScreen extends Screen {
         ox = width / 2 - 190;
         oy = Math.max(8, (height - 190) / 2);
         enabled = NeroConfig.enabled;
-        url = tf(oy + 14, "API URL", NeroConfig.url, 300);
+        url = tf(oy + 14, "API URL", NeroConfig.url.isEmpty() ? OpenRouter.CHAT_URL : NeroConfig.url, 300);
         key = tf(oy + 36, "API Key", NeroConfig.key, 300);
         key.setRenderTextProvider((s, i) -> OrderedText.styledForwardsVisitedString("*".repeat(s.length()), Style.EMPTY));
-        model = tf(oy + 58, "Модель", NeroConfig.model, 100);
+        model = tf(oy + 58, "Модель (auto = сама)", NeroConfig.model.isEmpty() ? "auto" : NeroConfig.model, 100);
         timeout = tf(oy + 80, "Тайм-аут", String.valueOf(NeroConfig.timeoutSec), 4);
         maxResp = tf(oy + 102, "Макс. ответ", String.valueOf(NeroConfig.maxResponse), 7);
         perTick = tf(oy + 124, "Блоков за тик", String.valueOf(NeroConfig.blocksPerTick), 5);
@@ -53,22 +53,24 @@ public class NeroSettingsScreen extends Screen {
     private static int num(String s, int d) { try { return Integer.parseInt(s.trim()); } catch (Exception e) { return d; } }
 
     private void save() {
+        String newKey = key.getText().trim();
+        if (!newKey.isEmpty() && !newKey.equals(NeroConfig.key)) enabled = true;
         NeroConfig.enabled = enabled;
-        NeroConfig.url = url.getText().trim();
-        NeroConfig.key = key.getText().trim();
-        NeroConfig.model = model.getText().trim();
-        NeroConfig.timeoutSec = NeroSpec.clamp(num(timeout.getText(), 30), 3, 120);
-        NeroConfig.maxResponse = NeroSpec.clamp(num(maxResp.getText(), 20000), 1000, 200000);
+        NeroConfig.url = url.getText().trim().isEmpty() ? OpenRouter.CHAT_URL : url.getText().trim();
+        NeroConfig.key = newKey;
+        NeroConfig.model = model.getText().trim().isEmpty() ? "auto" : model.getText().trim();
+        NeroConfig.timeoutSec = NeroSpec.clamp(num(timeout.getText(), 90), 3, 300);
+        NeroConfig.maxResponse = NeroSpec.clamp(num(maxResp.getText(), 200000), 1000, 400000);
         NeroConfig.blocksPerTick = NeroSpec.clamp(num(perTick.getText(), 300), 20, 2000);
         NeroConfig.save();
     }
 
     private void test() {
         save();
-        if (!NeroConfig.remoteReady()) { NeroHistory.log("Проверка: включи ИИ и укажи URL (http:// или https://)"); return; }
+        if (!NeroConfig.remoteReady()) { NeroHistory.log("Проверка: вставь ключ OpenRouter (sk-or-...) и нажми «Сохранить»"); return; }
         NeroHistory.log("Проверка подключения...");
         MinecraftClient mc = MinecraftClient.getInstance();
-        new HttpProvider().process(new NeroRequest("Построй лифт на 3 этажа", null, null, List.of())).whenComplete((r, e) -> mc.execute(() -> {
+        new HttpProvider().process(new NeroRequest("Построй маленький дом с лифтом", null, null, List.of())).whenComplete((r, e) -> mc.execute(() -> {
             if (e != null || r == null) NeroHistory.log("Проверка: сбой запроса");
             else if (r.ok) NeroHistory.log("Проверка пройдена: ИИ вернул проект «" + r.spec.title() + "»");
             else NeroHistory.log("Проверка не пройдена: " + r.error);
@@ -78,10 +80,10 @@ public class NeroSettingsScreen extends Screen {
     @Override
     public void render(DrawContext ctx, int mx, int my, float d) {
         renderBackground(ctx, mx, my, d);
-        ctx.drawTextWithShadow(textRenderer, "NERO AI: подключение внешней нейросети (необязательно)", ox, oy - 2, 0x55FFFF);
+        ctx.drawTextWithShadow(textRenderer, "NERO AI: вставь только ключ OpenRouter, остальное настроено само", ox, oy - 2, 0x55FFFF);
         String[] lab = {"API URL", "API Key", "Модель", "Тайм-аут, сек", "Макс. ответ", "Блоков за тик"};
         for (int i = 0; i < lab.length; i++) ctx.drawTextWithShadow(textRenderer, lab[i], ox, oy + 18 + i * 22, 0xFFFFFF);
-        String h = "Формат запроса: OpenAI-совместимый chat/completions (адрес вида https://хост/v1/chat/completions). Ключ хранится только локально и никому не отправляется, кроме указанного адреса. Без ИИ работает локальный режим.";
+        String h = "Достаточно вставить ключ (sk-or-...) и нажать «Сохранить»: адрес API задан, бесплатная модель выбирается автоматически (при отказе берётся следующая). Для локального сервера (Ollama/LM Studio) укажи его адрес, ключ не нужен. Без ключа работает локальный режим: он тоже строит что угодно по описанию.";
         int y = oy + 172;
         for (OrderedText l : textRenderer.wrapLines(Text.literal(h), 372)) { ctx.drawTextWithShadow(textRenderer, l, ox, y, 0xAAAAAA); y += 9; }
         super.render(ctx, mx, my, d);
