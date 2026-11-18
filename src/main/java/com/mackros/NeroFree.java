@@ -228,16 +228,28 @@ public final class NeroFree {
             if (++n > 12 || !e.isJsonObject()) continue;
             JsonObject o = e.getAsJsonObject();
             List<String> cmds = new ArrayList<>();
+            List<String[]> lr = new ArrayList<>();
             for (JsonElement ce : arr(o, "commands")) {
                 if (cmds.size() >= 90 || ++total > 400) break;
-                String cm = sub(ce.getAsString(), c.base, bid);
+                String raw, label = null, role = null;
+                try {
+                    if (ce.isJsonObject()) { raw = gs(ce.getAsJsonObject(), "cmd"); label = gs(ce.getAsJsonObject(), "label"); role = gs(ce.getAsJsonObject(), "role"); }
+                    else raw = ce.getAsString();
+                } catch (Exception ex) { continue; }
+                if (raw == null) continue;
+                String cm = sub(raw, c.base, bid);
                 if (cm.startsWith("/")) cm = cm.substring(1);
-                if (!cm.isBlank()) cmds.add(cm);
+                if (cm.isBlank()) continue;
+                cmds.add(cm);
+                lr.add(new String[]{label == null ? "" : esc(label), role == null ? "" : esc(role)});
             }
             if (cmds.isEmpty()) continue;
             String nm = gs(o, "name");
             int el = c.begin(nm == null ? "Логика" : nm, "mechanism", "Командные блоки", "Логика из чертежа", main);
             c.chain(cmds, el);
+            int first = c.pl.cbs.size() - cmds.size();
+            for (int i = 0; i < cmds.size(); i++)
+                if (!lr.get(i)[0].isEmpty()) c.pl.cbs.set(first + i, c.pl.cbs.get(first + i).named(lr.get(i)[0], lr.get(i)[1]));
         }
         n = 0;
         for (JsonElement e : arr(bp, "setup")) {
@@ -265,26 +277,28 @@ public final class NeroFree {
     public static List<String> features(String t) {
         List<String> f = new ArrayList<>();
         String[][] x = {{"лифт|подъемник", "лифт"}, {"принтер|3d|3д", "3D-принтер"}, {"ворот|шлагбаум", "автоворота"}, {"гараж", "гараж"}, {"бассейн", "бассейн"},
-                {"сигнализ", "сигнализация"}, {"ферм|огород", "автоферма"}, {"турел", "турель"}, {"купол", "купол"}, {"телепорт", "телепорты"}, {"сейф|кодов\\w* замок|код", "кодовый замок"},
-                {"конвейер|эскалатор|траволатор", "конвейер"}, {"шоу|фейерверк", "световое шоу"}, {"погод|метео", "метеопанель"}, {"арен|волн\\w* мобов", "арена волн"},
+                {"сигнализ", "сигнализация"}, {"ферм|огород|фабрик|завод|производств", "автоферма"}, {"турел", "турель"}, {"купол", "купол"}, {"телепорт", "телепорты"}, {"сейф|кодов\\w* замок|код", "кодовый замок"},
+                {"конвейер|эскалатор|траволатор|фабрик|завод|производств", "конвейер"}, {"шоу|фейерверк", "световое шоу"}, {"погод|метео", "метеопанель"}, {"арен|волн\\w* мобов", "арена волн"},
                 {"бур\\b|автобур|шахтер|добыч", "автобур"}, {"фонар|освещ", "умные фонари"}, {"точк\\w* дом|систем\\w* дом", "точки дома"}};
         for (String[] a : x) if (has(t, a[0])) f.add(a[1]);
         return f;
     }
 
     public static boolean wantsBuilding(String t) {
-        return has(t, "баз[аыуе]|комплекс|штаб|лаборатор|центр|резиденц|дом|здани|башн|небоскр|вилл|особняк|коттедж|отел|офис|убежищ|ангар|склад");
+        return has(t, "фабрик|завод|производств|баз[аыуе]|комплекс|штаб|лаборатор|центр|резиденц|дом|здани|башн|небоскр|вилл|особняк|коттедж|отел|офис|убежищ|ангар|склад");
     }
 
     private static void compose(NeroPlanner.Ctx c, NeroSpec s) {
         String t = LocalProvider.norm((s.desc == null || s.desc.isEmpty()) ? s.name : s.desc);
-        boolean big = has(t, "баз[аыуе]|комплекс|штаб|лаборатор|центр|резиденц");
+        String arch = NeroArchetypes.detect(t);
+        if (arch != null) { NeroArchetypes.build(c, arch, t); return; }
+        boolean big = has(t, "фабрик|завод|производств|баз[аыуе]|комплекс|штаб|лаборатор|центр|резиденц");
         boolean bld = big || wantsBuilding(t);
         boolean wLift = has(t, "лифт|подъемник"), wPrint = has(t, "принтер|3d|3д"), wGate = has(t, "ворот|шлагбаум"), wGarage = has(t, "гараж"),
-                wPool = has(t, "бассейн"), wAlarm = has(t, "сигнализ"), wFarm = has(t, "ферм|огород"), wSentry = has(t, "турел"), wDome = has(t, "купол"),
-                wTele = has(t, "телепорт"), wVault = has(t, "сейф|кодов\\w* замок|код"), wBelt = has(t, "конвейер|эскалатор|траволатор"),
+                wPool = has(t, "бассейн"), wAlarm = has(t, "сигнализ"), wFarm = has(t, "ферм|огород|фабрик|завод|производств"), wSentry = has(t, "турел"), wDome = has(t, "купол"),
+                wTele = has(t, "телепорт"), wVault = has(t, "сейф|кодов\\w* замок|код"), wBelt = has(t, "конвейер|эскалатор|траволатор|фабрик|завод|производств"),
                 wShow = has(t, "шоу|фейерверк"), wWeather = has(t, "погод|метео"), wWave = has(t, "арен|волн\\w* мобов"),
-                wMiner = has(t, "бур\\b|автобур|шахтер|добыч"), wLamps = has(t, "фонар|освещ"), wHomes = has(t, "точк\\w* дом|систем\\w* дом");
+                wMiner = has(t, "бур\\b|автобур|шахтер|добыч|фабрик|завод|производств"), wLamps = has(t, "фонар|освещ"), wHomes = has(t, "точк\\w* дом|систем\\w* дом");
         boolean any = wLift || wPrint || wGate || wGarage || wPool || wAlarm || wFarm || wSentry || wDome || wTele || wVault || wBelt || wShow || wWeather || wWave || wMiner || wLamps || wHomes;
         if (!bld && !any) { NeroPlanner.house(c, s); return; }
         boolean fut = "futuristic".equals(s.style) || has(t, "футурист|будущ|космич|принтер|лаборатор|хай");
@@ -426,7 +440,7 @@ public final class NeroFree {
             int dx = sMinX - cMinX, dz = sMaxZ + 5 - cMinZ;
             List<NeroBuildPlan.Cb> old = new ArrayList<>(pl.cbs);
             pl.cbs.clear();
-            for (NeroBuildPlan.Cb k : old) pl.cbs.add(new NeroBuildPlan.Cb(k.x() + dx, by, k.z() + dz, k.f(), k.type(), k.auto(), k.cond(), k.cmd(), k.el()));
+            for (NeroBuildPlan.Cb k : old) pl.cbs.add(new NeroBuildPlan.Cb(k.x() + dx, by, k.z() + dz, k.f(), k.type(), k.auto(), k.cond(), k.cmd(), k.el(), k.label(), k.role()));
             int bay = c.begin("Командный отсек", "structure", "-", "Платформа с командными блоками рядом со зданием");
             int x1 = cMinX + dx - 1, x2 = cMaxX + dx + 1, z1 = cMinZ + dz - 1, z2 = cMaxZ + dz + 1;
             for (int x = x1; x <= x2; x++)
@@ -512,15 +526,21 @@ public final class NeroFree {
             int col = i % 8, row = i / 8, z = zs + 2 * col, y = by + 1 + 3 * row;
             String[] cc = ctl.get(i);
             String label = esc(cc[0]);
-            for (int d = 1; d < cc.length; d++)
-                pl.cbs.add(new NeroBuildPlan.Cb(Xw + d - 1, y, z, Direction.EAST, d == 1 ? NeroBuildPlan.CbType.IMPULSE : NeroBuildPlan.CbType.CHAIN, d != 1, false, cc[d], pe));
+            for (int d = 1; d < cc.length; d++) {
+                String sh = cc[d].length() > 70 ? cc[d].substring(0, 69) + "…" : cc[d];
+                pl.cbs.add(new NeroBuildPlan.Cb(Xw + d - 1, y, z, Direction.EAST, d == 1 ? NeroBuildPlan.CbType.IMPULSE : NeroBuildPlan.CbType.CHAIN, d != 1, false, cc[d], pe,
+                        d == 1 ? "Кнопка «" + label + "»" : "Кнопка «" + label + "»: шаг " + d,
+                        "Пульт управления: нажатие кнопки «" + label + "» выполняет: " + sh));
+            }
             pl.cbs.add(new NeroBuildPlan.Cb(Xw + cc.length - 1, y, z, Direction.EAST, cc.length == 1 ? NeroBuildPlan.CbType.IMPULSE : NeroBuildPlan.CbType.CHAIN, cc.length != 1, false,
-                    "tellraw @a[distance=..30] {\"text\":\"▶ " + label + "\",\"color\":\"green\"}", pe));
+                    "tellraw @a[distance=..30] {\"text\":\"▶ " + label + "\",\"color\":\"green\"}", pe,
+                    "Сообщение: «" + label + "»", "Показывает в чате, что кнопка «" + label + "» нажата."));
             pl.blocks.add(new NeroBuildPlan.Block(Xw - 1, y, z, Blocks.STONE_BUTTON.getDefaultState().with(WallMountedBlock.FACING, Direction.WEST), pe, 2));
             pl.setup.add("summon minecraft:text_display " + fd(Xw - 0.9) + " " + fd(y + 1.0) + " " + fd(z + 0.5)
                     + " {text:'{\"text\":\"" + label + "\",\"color\":\"aqua\"}',billboard:\"center\",Tags:[\"" + tag + "\"]}");
         }
         pl.help.add("Пульт управления: стена с кнопками слева от постройки, командный отсек позади неё.");
+        NeroLabels.apply(pl);
     }
 
     private NeroFree() { }

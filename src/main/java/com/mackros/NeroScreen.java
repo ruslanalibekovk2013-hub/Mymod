@@ -67,7 +67,7 @@ public class NeroScreen extends Screen {
         pauseBtn = btn("Пауза", ox, y2, 90, 18, () -> { if (NeroBuilder.paused) NeroBuilder.resume(); else NeroBuilder.pause(); });
         btn("Отменить постройку", ox + 94, y2, 90, 18, NeroBuilder::cancel);
         btn("Очистить", ox + 188, y2, 90, 18, () -> {
-            NeroAI.clear(); plan = null; report = null; confirm = false; NeroBuilder.clearPreview(); NeroHistory.clearLog(); draft = ""; field.setText("");
+            NeroAI.clear(); plan = null; report = null; confirm = false; NeroBuilder.clearPreview(); NeroBuilder.labelPlan = null; NeroHistory.clearLog(); draft = ""; field.setText("");
         });
         btn("Настройки AI", ox + 282, y2, 90, 18, () -> MinecraftClient.getInstance().setScreen(new NeroSettingsScreen()));
 
@@ -82,9 +82,14 @@ public class NeroScreen extends Screen {
         x = row(x, y3, "Z+", 26, () -> { base = base.add(0, 0, 1); afterMove(); });
         x = row(x, y3, "Y-", 26, () -> { base = base.add(0, -1, 0); afterMove(); });
         x = row(x, y3, "Y+", 26, () -> { base = base.add(0, 1, 0); afterMove(); });
-        x = row(x, y3, "Исправить", 60, this::fix);
-        x = row(x, y3, "Меню", 40, () -> MinecraftClient.getInstance().setScreen(new MackrosScreen()));
-        row(x, y3, "Закрыть", 50, this::close);
+        x = row(x, y3, "Исправить", 54, this::fix);
+        x = row(x, y3, "КБ", 30, () -> {
+            if (plan == null && NeroAI.project != null) replan(false);
+            if (plan == null) { NeroHistory.log("Сначала сгенерируй проект"); return; }
+            MinecraftClient.getInstance().setScreen(new NeroCbScreen(plan, report));
+        });
+        x = row(x, y3, "Меню", 34, () -> MinecraftClient.getInstance().setScreen(new MackrosScreen()));
+        row(x, y3, "Закрыть", 48, this::close);
 
         List<String> h = NeroHistory.requests();
         for (int i = 0; i < 3; i++) {
@@ -140,6 +145,7 @@ public class NeroScreen extends Screen {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (NeroAI.project == null || mc.world == null) return;
         plan = NeroPlanner.plan(NeroAI.project, base);
+        NeroBuilder.labelPlan = plan;
         ClientWorld w = mc.world;
         report = NeroValidator.validate(plan, w.getBottomY(), w.getTopY());
         replaced = 0;
@@ -281,7 +287,7 @@ public class NeroScreen extends Screen {
             }
             if (plan != null) {
                 info.add("Размер: " + plan.sx() + "x" + plan.sy() + "x" + plan.sz() + "  Механизмов: " + plan.mechanisms());
-                info.add("Блоков: " + plan.solid() + "  КБ: " + plan.cbs.size());
+                info.add("Блоков: " + plan.solid() + "  КБ: " + plan.cbs.size() + (report == null ? " (не проверены)" : report.ok() ? " (команды проверены)" : " (НЕ ГОТОВО)"));
                 info.add("Этапов: " + plan.stages() + " (порции по " + NeroConfig.blocksPerTick + ")");
                 info.add("Точка: " + base.getX() + " " + base.getY() + " " + base.getZ());
                 info.add(report == null ? "" : (report.ok() ? "Проверка: ОК" : "Проверка: ошибок " + report.errors.size()) + (replaced > 0 ? "  замена: " + replaced : ""));

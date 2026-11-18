@@ -46,6 +46,9 @@ public final class NeroBuilder {
     private record Pending(int end, AtomicBoolean missing, int n, boolean cb) { }
 
     public static Box preview = null;
+    /** Для 3D-предпросмотра: полный план (блоки, КБ с подписями), последний план для подписей рядом с КБ и выбранный КБ. */
+    public static NeroBuildPlan previewPlan = null, labelPlan = null;
+    public static NeroBuildPlan.Cb selectedCb = null;
     public static volatile boolean running = false, paused = false;
     public static volatile int done = 0, total = 0;
 
@@ -62,8 +65,8 @@ public final class NeroBuilder {
     private static List<Old> undoJob = null;
     private static int undoIdx = 0;
 
-    public static void showPreview(NeroBuildPlan p) { preview = p == null ? null : p.box(); }
-    public static void clearPreview() { preview = null; }
+    public static void showPreview(NeroBuildPlan p) { preview = p == null ? null : p.box(); previewPlan = p; }
+    public static void clearPreview() { preview = null; previewPlan = null; selectedCb = null; }
     public static boolean hasHistory() { return !PROJECTS.isEmpty(); }
     public static boolean busy() { return running || undoJob != null; }
 
@@ -155,7 +158,7 @@ public final class NeroBuilder {
         phase = Phase.BLOCKS;
         running = true;
         paused = false;
-        preview = null;
+        preview = null; previewPlan = null;
         return true;
     }
 
@@ -262,6 +265,7 @@ public final class NeroBuilder {
             be.getCommandExecutor().setCommand(c.cmd());
             be.setAuto(c.auto());
             if (be.getCommandExecutor().getCommand().isEmpty()) be.getCommandExecutor().setCommand(c.cmd());
+            if (!c.label().isEmpty()) be.getCommandExecutor().setCustomName(net.minecraft.text.Text.literal(c.label()));
             be.markDirty();
             BlockState now = w.getBlockState(p);
             w.updateListeners(p, now, now, 3);

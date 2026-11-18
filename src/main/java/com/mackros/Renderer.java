@@ -3,6 +3,8 @@ package com.mackros;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
@@ -34,6 +36,7 @@ public final class Renderer {
         }
 
         if (NeroBuilder.preview != null) box(m, vc, NeroBuilder.preview, 1f, 0.65f, 0.1f);
+        drawPlan(mc, m, vc, vp, c.camera(), cam);
 
         if (Editor.preview && !Editor.clip.isEmpty()) {
             BlockPos base = Editor.placeBase(mc);
@@ -62,7 +65,57 @@ public final class Renderer {
         }
 
         m.pop();
-        if (vp instanceof VertexConsumerProvider.Immediate imm) imm.draw(RenderLayer.getLines());
+        if (vp instanceof VertexConsumerProvider.Immediate imm) { imm.draw(RenderLayer.getLines()); imm.draw(); }
+    }
+
+    private static void text(MinecraftClient mc, MatrixStack m, VertexConsumerProvider vp, Camera cam, double x, double y, double z, String s, int color, float scale) {
+        m.push();
+        m.translate(x, y, z);
+        m.multiply(cam.getRotation());
+        m.scale(-scale, -scale, scale);
+        float w = -mc.textRenderer.getWidth(s) / 2f;
+        mc.textRenderer.draw(s, w, 0, color, false, m.peek().getPositionMatrix(), vp, TextRenderer.TextLayerType.SEE_THROUGH, 0x80000000, 0xF000F0);
+        m.pop();
+    }
+
+    private static String cut(String s, int n) { return s.length() > n ? s.substring(0, n - 1) + "…" : s; }
+
+    /** 3D-предпросмотр проекта (блоки + командные блоки с подписями) и подписи рядом с командными блоками построенного/планируемого проекта. */
+    private static void drawPlan(MinecraftClient mc, MatrixStack m, VertexConsumer vc, VertexConsumerProvider vp, Camera camera, Vec3d cam) {
+        NeroBuildPlan full = NeroBuilder.previewPlan;
+        NeroBuildPlan pl = full != null ? full : NeroBuilder.labelPlan;
+        if (pl == null) return;
+        if (full != null) {
+            int n = 0;
+            for (NeroBuildPlan.Block b : pl.blocks) {
+                if (b.st().isAir()) continue;
+                if (n++ >= Config.previewLimit) break;
+                float[] col = color(b.st());
+                box(m, vc, new Box(new BlockPos(b.x(), b.y(), b.z())).contract(0.12), col[0], col[1], col[2]);
+            }
+        }
+        double range = full != null ? 56 : 12;
+        BlockPos look = Editor.look(mc, false);
+        int shown = 0;
+        for (NeroBuildPlan.Cb k : pl.cbs) {
+            double d2 = cam.squaredDistanceTo(k.x() + 0.5, k.y() + 0.5, k.z() + 0.5);
+            boolean sel = k == NeroBuilder.selectedCb || (NeroBuilder.selectedCb != null && NeroBuilder.selectedCb.x() == k.x() && NeroBuilder.selectedCb.y() == k.y() && NeroBuilder.selectedCb.z() == k.z());
+            if (!sel && d2 > range * range) continue;
+            float r = k.type() == NeroBuildPlan.CbType.IMPULSE ? 1f : k.type() == NeroBuildPlan.CbType.REPEAT ? 0.7f : 0.2f;
+            float g = k.type() == NeroBuildPlan.CbType.IMPULSE ? 0.6f : k.type() == NeroBuildPlan.CbType.REPEAT ? 0.3f : 1f;
+            float bl = k.type() == NeroBuildPlan.CbType.IMPULSE ? 0.1f : k.type() == NeroBuildPlan.CbType.REPEAT ? 1f : 0.4f;
+            if (sel) { r = 1f; g = 1f; bl = 1f; }
+            box(m, vc, new Box(new BlockPos(k.x(), k.y(), k.z())).expand(sel ? 0.12 : 0.04), r, g, bl);
+            boolean hover = look != null && look.getX() == k.x() && look.getY() == k.y() && look.getZ() == k.z();
+            if (!sel && !hover && (shown >= 60 || d2 > (full != null ? 1600.0 : 64.0))) continue;
+            shown++;
+            int color = k.type() == NeroBuildPlan.CbType.IMPULSE ? 0xFFAA33 : k.type() == NeroBuildPlan.CbType.REPEAT ? 0xCC77FF : 0x66FF88;
+            text(mc, m, vp, camera, k.x() + 0.5, k.y() + 1.35, k.z() + 0.5, cut(k.label(), 44), color, 0.022f);
+            if (hover || sel) {
+                text(mc, m, vp, camera, k.x() + 0.5, k.y() + 1.75, k.z() + 0.5, cut(k.role(), 90), 0xFFFFFF, 0.016f);
+                text(mc, m, vp, camera, k.x() + 0.5, k.y() + 2.05, k.z() + 0.5, cut(k.cmd(), 90), 0xAAAAAA, 0.014f);
+            }
+        }
     }
 
     private static float[] color(BlockState s) {

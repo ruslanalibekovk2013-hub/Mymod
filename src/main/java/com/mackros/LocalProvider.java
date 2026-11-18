@@ -195,7 +195,7 @@ public final class LocalProvider implements AIProvider {
             }
             if (!"extras".equals(pending)) reply.append("Изменяю проект. ");
         } else {
-            return new NeroResponse(true, null, "Опиши, что построить. Например: «Построй лифт на 10 этажей», «Современный двухэтажный дом с гаражом и бассейном», «Секретная комната с картиной».", null, null, "Локальный");
+            return new NeroResponse(true, null, "Локальный режим не узнал такую конструкцию. Уточни, из каких частей она должна состоять и что должна делать. Без интернета я умею: дома и базы с любыми механизмами, лифты, 3D-принтер, корабль, робот, мост, поезд, компьютер, портал. Всё остальное (замок, дракон, станция, любое новое устройство) спроектирует внешний ИИ: вставь ключ OpenRouter в «Настройки AI».", null, null, "Локальный");
         }
 
         // следующий уточняющий вопрос (диалог)
@@ -223,7 +223,8 @@ public final class LocalProvider implements AIProvider {
         boolean base = NeroFree.has(t, "баз[аыуе]|комплекс|штаб|лаборатор|центр|резиденц|умн\\w* дом");
         boolean houseMulti = "house".equals(kind) && NeroFree.has(t, "ферм|турел|телепорт|сейф|кодов|шоу|купол|принтер|3d|3д|конвейер|погод|шахтер|арен|умн");
         boolean nextCustom = cur != null && cur.kind.equals("custom") && !explicitNew(t);
-        boolean wants = base || houseMulti || NeroFree.has(t, "принтер|3d|3д") || (kind == null && cur == null && (mech || NeroFree.wantsBuilding(t)));
+        boolean arch = NeroArchetypes.detect(t) != null;
+        boolean wants = arch || base || houseMulti || NeroFree.has(t, "принтер|3d|3д") || (kind == null && cur == null && (mech || NeroFree.wantsBuilding(t)));
         if (!wants && !nextCustom) return null;
         NeroSpec s;
         if (nextCustom) {
@@ -239,9 +240,11 @@ public final class LocalProvider implements AIProvider {
         applyDetails(t, s);
         java.util.List<String> f = NeroFree.features(s.desc);
         boolean bld = NeroFree.wantsBuilding(s.desc);
-        s.name = (bld ? "Постройка" : "Установка") + (f.isEmpty() ? "" : ": " + String.join(", ", f));
+        String ak = NeroArchetypes.detect(s.desc);
+        s.name = ak != null ? "Проект: " + NeroArchetypes.nameOf(ak) : (bld ? "Постройка" : "Установка") + (f.isEmpty() ? "" : ": " + String.join(", ", f));
         if (s.name.length() > 60) s.name = s.name.substring(0, 60);
-        String rp = (nextCustom ? "Обновил свободный проект. " : "Собрал свободный проект локально. ") + "Состав: " + (bld ? "здание" : "без здания") + (f.isEmpty() ? "" : ", " + String.join(", ", f))
+        String rp = ak != null ? ("Спроектировал локально: " + NeroArchetypes.nameOf(ak) + ". Работает: " + NeroArchetypes.works(ak) + ". Нажми «КБ», чтобы посмотреть подписи командных блоков, затем «Предпросмотр» или «Построить».")
+                : (nextCustom ? "Обновил свободный проект. " : "Собрал свободный проект локально. ") + "Состав: " + (bld ? "здание" : "без здания") + (f.isEmpty() ? "" : ", " + String.join(", ", f))
                 + ". Нажми «Предпросмотр» или «Построить». Справа от стройки будут пульт с кнопками и командный отсек.";
         return new NeroResponse(true, s, rp, null, null, "Локальный");
     }

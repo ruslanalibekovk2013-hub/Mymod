@@ -17,7 +17,10 @@ public final class NeroBuildPlan {
     /** stage: 0 расчистка, 1 конструкция, 2 детали. */
     public record Block(int x, int y, int z, BlockState st, int el, int stage) { }
 
-    public record Cb(int x, int y, int z, Direction f, CbType type, boolean auto, boolean cond, String cmd, int el) { }
+    public record Cb(int x, int y, int z, Direction f, CbType type, boolean auto, boolean cond, String cmd, int el, String label, String role) {
+        public Cb(int x, int y, int z, Direction f, CbType type, boolean auto, boolean cond, String cmd, int el) { this(x, y, z, f, type, auto, cond, cmd, el, "", ""); }
+        public Cb named(String label, String role) { return new Cb(x, y, z, f, type, auto, cond, cmd, el, label, role); }
+    }
 
     public record Element(String name, String kind, List<Integer> deps, String activation, String logic, Map<String, Integer> meta) { }
 

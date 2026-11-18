@@ -35,8 +35,9 @@ public final class HttpProvider implements AIProvider {
     private static String system() {
         return "You are NERO, the architect of a Minecraft 1.20.4 (Java, singleplayer, cheats on) building assistant. The player writes in Russian or English. "
                 + "Return ONE JSON object and nothing else (no markdown). Schema: {\"kind\":\"custom\",\"name\":\"short Russian title\",\"reply\":\"short Russian message\",\"question\":null,\"blueprint\":{...}}. "
-                + "Use kind=custom with a blueprint for ANY request (houses, bases, elevators, 3D printers, factories, anything). Only for trivial requests you may instead return a template: kind one of " + NeroSpec.KINDS
-                + " with fields style, floors, width, depth, length, code, copies, garage_side, extras. If a current project JSON is given, modify it and return the full new blueprint.\n"
+                + "ALWAYS use kind=custom with a blueprint. The player decides what to create: never replace a request with the nearest ready template; design any new object from scratch: understand its purpose, split it into parts, choose fitting blocks, build the mechanisms and command blocks it needs. "
+                + "If the request is truly ambiguous, return {\"kind\":null,\"question\":\"ONE concrete clarifying question in Russian\"} instead of building a random object. If a current project JSON is given, modify it and return the full new blueprint. "
+                + "Be honest: if something cannot be done in Minecraft 1.20.4 (for example blocks cannot move by themselves), say so in reply and build the closest working variant. Fantastic devices and weapons are allowed only as fictional game constructs; never give real-world weapon instructions.\n"
                 + "BLUEPRINT = {\"ops\":[...],\"mechs\":[...],\"chains\":[...],\"setup\":[...],\"buttons\":[...],\"help\":\"text\"}.\n"
                 + "Coordinates are integers relative to the origin: (0,0,0) is the corner of the build at floor level (floor blocks lie at y=-1); build toward +x,+z; max |x|,|z| 120, y -60..250.\n"
                 + "ops are applied in order, later ops overwrite earlier ones (so a box of minecraft:air carves rooms/doors after walls). Op forms: "
@@ -47,7 +48,7 @@ public final class HttpProvider implements AIProvider {
                 + "Block ids must be real 1.20.4 ids; block states go in [..] (facing, half, shape, open, powered...). NEVER place command blocks, structure blocks or spawners in ops: the engine places all command blocks itself, next to the building, and builds a control wall with buttons.\n"
                 + "mechs = ready, verified command-block mechanisms: {\"key\":\"lift\",\"x\":4,\"y\":0,\"z\":4,\"name\":\"Лифт\",\"params\":[floors,floor_height,speed]}. Available keys and params:\n" + rigList()
                 + "A mech occupies its own area (a lift needs a free 3x3 shaft plus a 1-block frame, going up as far as floors*height); put it inside/next to your structure and keep that area free of your ops. The engine adds buttons for lift floors, vault code, start/stop etc. on the control wall automatically.\n"
-                + "chains = your own command logic: {\"name\":\"...\",\"commands\":[\"cmd1\",\"cmd2\"]}. They run EVERY tick in order (first block repeating, rest chained), so guard each command with scoreboard/execute conditions. "
+                + "chains = your own command logic: {\"name\":\"...\",\"commands\":[{\"cmd\":\"cmd1\",\"label\":\"Короткая подпись блока\",\"role\":\"что делает этот блок\"}, ...]}. EVERY command block needs a clear Russian label (e.g. \"Открытие двери\", \"Вызов кабины\", \"Проверка условий\") and a role. They run EVERY tick in order (first block repeating, rest chained), so guard each command with scoreboard/execute conditions. "
                 + "Placeholders in all commands: {x+N} {y+N} {z+N} become absolute coordinates relative to the origin, {id} becomes a unique id for scoreboard names/tags (e.g. {id}_t). "
                 + "Commands have no leading slash. Allowed roots: execute setblock fill clone tp teleport scoreboard tag effect particle playsound title tellraw summon data schedule kill damage weather time gamerule. "
                 + "Use scoreboard objectives created in \"setup\" (list of one-time commands, e.g. \"scoreboard objectives add {id}_t dummy\"). A single fill/clone volume must be <= 32768 blocks. Never kill @e without filter.\n"
@@ -88,6 +89,7 @@ public final class HttpProvider implements AIProvider {
     /** Пробная сборка чертежа и проверка (без мира): ошибки команд, идентификаторов, цепочек. */
     private static List<String> check(NeroSpec s) {
         if (s == null || s.bp == null) return List.of();
+        if (!s.bp.has("ops") && !s.bp.has("mechs") && !s.bp.has("chains")) return List.of("чертёж пуст: нет ops, mechs и chains");
         try {
             NeroBuildPlan p = NeroPlanner.plan(s, new BlockPos(0, 70, 0));
             NeroValidator.Report rep = NeroValidator.validate(p, -64, 320);
@@ -151,7 +153,11 @@ public final class HttpProvider implements AIProvider {
             if (a < 0 || z <= a) return NeroResponse.fail("ИИ не вернул JSON", N);
             JsonObject o = JsonParser.parseString(content.substring(a, z + 1)).getAsJsonObject();
             NeroSpec spec = NeroSpec.fromJson(o);
-            if (spec == null) return NeroResponse.fail("ИИ назвал неизвестный тип конструкции", N);
+            if (spec == null) {
+                String qq = o.has("question") && !o.get("question").isJsonNull() ? o.get("question").getAsString() : null;
+                if (qq != null && !qq.isBlank()) return new NeroResponse(true, null, qq.length() > 300 ? qq.substring(0, 300) : qq, "ai", null, N);
+                return NeroResponse.fail("ИИ назвал неизвестный тип конструкции", N);
+            }
             String reply = o.has("reply") && !o.get("reply").isJsonNull() ? o.get("reply").getAsString() : "Проект готов: " + spec.summary();
             String q = o.has("question") && !o.get("question").isJsonNull() ? o.get("question").getAsString() : null;
             if (reply.length() > 400) reply = reply.substring(0, 400);
