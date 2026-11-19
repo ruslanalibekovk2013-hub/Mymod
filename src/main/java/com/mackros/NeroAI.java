@@ -26,6 +26,33 @@ public final class NeroAI {
         if (text.isEmpty()) return;
         NeroHistory.addRequest(text);
         NeroHistory.log("Вы: " + text);
+        String low = text.toLowerCase(java.util.Locale.ROOT);
+        MinecraftClient mc0 = MinecraftClient.getInstance();
+        if (low.matches("^(библиотека|library)(\\s.*)?$")) {
+            String q = text.replaceFirst("(?i)^(библиотека|library)\\s*", "");
+            NeroResponse lr = new NeroResponse(true, null, NeroLibrary.describe(q), null, null, "Библиотека");
+            handle(lr);
+            done.accept(lr);
+            return;
+        }
+        if (low.matches("^(исследуй|изучи|research)\\s+.+")) {
+            String topic = text.replaceFirst("(?i)^(исследуй|изучи|research)\\s+", "");
+            if (!NeroConfig.remoteReady()) {
+                NeroResponse nr = new NeroResponse(true, null, "Исследование мира идёт через внешний ИИ с веб-поиском: вставь ключ OpenRouter в «Настройки AI». Пока работает встроенная библиотека (команда «библиотека»).", null, null, "Библиотека");
+                handle(nr);
+                done.accept(nr);
+                return;
+            }
+            busy = true;
+            NeroHistory.log("Исследую мир по теме «" + topic + "» на разных языках, это может занять до пары минут");
+            NeroResearch.run(topic).whenComplete((resp, ex) -> mc0.execute(() -> {
+                NeroResponse rr = (ex != null || resp == null) ? NeroResponse.fail(ex != null ? ex.getClass().getSimpleName() : "нет ответа", "Исследование") : resp;
+                busy = false;
+                handle(rr);
+                done.accept(rr);
+            }));
+            return;
+        }
         final NeroRequest req = new NeroRequest(text, project, pending, NeroHistory.requests());
         final AIProvider main = NeroConfig.remoteReady() ? new HttpProvider() : LOCAL;
         busy = true;

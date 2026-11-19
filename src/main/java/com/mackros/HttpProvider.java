@@ -32,7 +32,7 @@ public final class HttpProvider implements AIProvider {
         return b.toString();
     }
 
-    private static String system() {
+    private static String system(String request) {
         return "You are NERO, the architect of a Minecraft 1.20.4 (Java, singleplayer, cheats on) building assistant. The player writes in Russian or English. "
                 + "Return ONE JSON object and nothing else (no markdown). Schema: {\"kind\":\"custom\",\"name\":\"short Russian title\",\"reply\":\"short Russian message\",\"question\":null,\"blueprint\":{...}}. "
                 + "ALWAYS use kind=custom with a blueprint. The player decides what to create: never replace a request with the nearest ready template; design any new object from scratch: understand its purpose, split it into parts, choose fitting blocks, build the mechanisms and command blocks it needs. "
@@ -54,7 +54,8 @@ public final class HttpProvider implements AIProvider {
                 + "Use scoreboard objectives created in \"setup\" (list of one-time commands, e.g. \"scoreboard objectives add {id}_t dummy\"). A single fill/clone volume must be <= 32768 blocks. Never kill @e without filter.\n"
                 + "buttons = control wall buttons: {\"label\":\"Открыть\",\"command\":\"cmd1\\ncmd2\"} (up to 4 commands separated by \\n, run once on click; use them to set scoreboard values your chains react to).\n"
                 + "QUALITY: make builds rich and fully functional: real interior (rooms, doors, windows, stairs, lighting, furniture), correct roofs, working mechanisms (use mechs when a matching one exists, otherwise write chains). "
-                + "Keep total ops <= 400 and total blocks <= 30000. Prefer few large box/cylinder ops over many set ops. Reply with the JSON only.";
+                + "Keep total ops <= 400 and total blocks <= 30000. Prefer few large box/cylinder ops over many set ops. Reply with the JSON only."
+                + NeroLibrary.promptSection(request);
     }
 
     @Override public String name() { return N; }
@@ -108,7 +109,7 @@ public final class HttpProvider implements AIProvider {
             JsonArray msgs = new JsonArray();
             JsonObject sys = new JsonObject();
             sys.addProperty("role", "system");
-            sys.addProperty("content", system());
+            sys.addProperty("content", system(r.text));
             msgs.add(sys);
             JsonObject usr = new JsonObject();
             usr.addProperty("role", "user");
