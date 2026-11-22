@@ -25,7 +25,7 @@ public class NeroScreen extends Screen {
     private static String draft = "";
 
     private TextFieldWidget field;
-    private ButtonWidget pauseBtn, buildBtn;
+    private ButtonWidget pauseBtn, buildBtn, genBtn;
     private int ox, oy;
 
     public NeroScreen() {
@@ -60,16 +60,17 @@ public class NeroScreen extends Screen {
         setInitialFocus(field);
 
         int y1 = oy + 34, y2 = oy + 54, y3 = oy + 74;
-        btn("Сгенерировать", ox, y1, 90, 18, this::generate);
+        genBtn = btn("Сгенерировать", ox, y1, 90, 18, () -> { if (NeroAI.busy()) NeroAI.cancel(); else generate(); });
         btn("Предпросмотр", ox + 94, y1, 90, 18, this::preview);
         buildBtn = btn("Построить", ox + 188, y1, 90, 18, this::build);
         btn("Откатить", ox + 282, y1, 90, 18, () -> NeroBuilder.rollback(MinecraftClient.getInstance()));
-        pauseBtn = btn("Пауза", ox, y2, 90, 18, () -> { if (NeroBuilder.paused) NeroBuilder.resume(); else NeroBuilder.pause(); });
-        btn("Отменить постройку", ox + 94, y2, 90, 18, NeroBuilder::cancel);
-        btn("Очистить", ox + 188, y2, 90, 18, () -> {
+        pauseBtn = btn("Пауза", ox, y2, 70, 18, () -> { if (NeroBuilder.paused) NeroBuilder.resume(); else NeroBuilder.pause(); });
+        btn("Отмена", ox + 75, y2, 70, 18, NeroBuilder::cancel);
+        btn("Очистить", ox + 150, y2, 70, 18, () -> {
             NeroAI.clear(); plan = null; report = null; confirm = false; NeroBuilder.clearPreview(); NeroBuilder.labelPlan = null; NeroHistory.clearLog(); draft = ""; field.setText("");
         });
-        btn("Настройки AI", ox + 282, y2, 90, 18, () -> MinecraftClient.getInstance().setScreen(new NeroSettingsScreen()));
+        btn("Настройки", ox + 225, y2, 70, 18, () -> MinecraftClient.getInstance().setScreen(new NeroSettingsScreen()));
+        btn("Исправить", ox + 300, y2, 72, 18, this::fix);
 
         int x = ox;
         x = row(x, y3, "Я", 28, () -> {
@@ -82,14 +83,14 @@ public class NeroScreen extends Screen {
         x = row(x, y3, "Z+", 26, () -> { base = base.add(0, 0, 1); afterMove(); });
         x = row(x, y3, "Y-", 26, () -> { base = base.add(0, -1, 0); afterMove(); });
         x = row(x, y3, "Y+", 26, () -> { base = base.add(0, 1, 0); afterMove(); });
-        x = row(x, y3, "Исправить", 54, this::fix);
-        x = row(x, y3, "КБ", 30, () -> {
+        x = row(x, y3, "Ред.", 34, () -> MinecraftClient.getInstance().setScreen(new NeroEditorScreen()));
+        x = row(x, y3, "КБ", 26, () -> {
             if (plan == null && NeroAI.project != null) replan(false);
             if (plan == null) { NeroHistory.log("Сначала сгенерируй проект"); return; }
             MinecraftClient.getInstance().setScreen(new NeroCbScreen(plan, report));
         });
-        x = row(x, y3, "Меню", 34, () -> MinecraftClient.getInstance().setScreen(new MackrosScreen()));
-        row(x, y3, "Закрыть", 48, this::close);
+        x = row(x, y3, "Чат", 32, () -> MinecraftClient.getInstance().setScreen(new NeroChatScreen()));
+        row(x, y3, "Меню", 60, () -> MinecraftClient.getInstance().setScreen(new NeroCatalogScreen()));
 
         List<String> h = NeroHistory.requests();
         for (int i = 0; i < 3; i++) {
@@ -120,6 +121,10 @@ public class NeroScreen extends Screen {
     @Override
     public void tick() {
         super.tick();
+        if (genBtn != null) {
+            genBtn.setMessage(Text.literal(NeroAI.busy() ? "Отмена запроса" : "Сгенерировать"));
+            if (NeroAI.busy()) field.setSuggestion("Идёт запрос к модели… (можно отменить)");
+        }
         if (pauseBtn != null) {
             pauseBtn.setMessage(Text.literal(NeroBuilder.paused ? "Продолжить" : "Пауза"));
             pauseBtn.active = NeroBuilder.running;
@@ -136,18 +141,58 @@ public class NeroScreen extends Screen {
         NeroAI.ask(text, r -> {
             draft = "";
             if (field != null) field.setText("");
-            if (r.ok && NeroAI.project != null && r.spec != null) replan(true);
+            if (r.ok && NeroAI.project != null && r.spec != null) { replan(true); postReport(); }
         });
     }
 
     /** Пересчитывает план для текущей точки и проверяет его. */
-    private static void replan(boolean verbose) {
+    static NeroBuildPlan plan() { return plan; }
+
+    static NeroValidator.Report report() { return report; }
+
+    static BlockPos base() { return base; }
+
+    /** Открывает проект из библиотеки без повторной генерации. */
+    static void loadProject(NeroSpec s) {
+        NeroAI.setProject(s);
+        plan = null;
+        report = null;
+        confirm = false;
+        NeroBuilder.clearPreview();
+        if (MinecraftClient.getInstance().world != null) replan(true);
+    }
+
+    /** Запуск генерации из каталога (меню): тот же путь, что и поле запроса. */
+    static void generateFromText(String text) {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc.world == null) return;
+        NeroAI.forceLocal = true;
+        NeroAI.ask(text, r -> { if (r.ok && NeroAI.project != null && r.spec != null) { replan(true); postReport(); } });
+        mc.setScreen(new NeroScreen());
+    }
+
+    /** После генерации: подробный отчёт попадает в чат проекта (там же можно сразу попросить исправить). */
+    private static void postReport() {
+        if (plan == null || NeroAI.project == null) return;
+        List<String> rep = NeroReport.make(NeroAI.project, plan, report);
+        String id = NeroAI.project.projectId.isEmpty() ? "_general" : NeroAI.project.projectId;
+        NeroProjects.appendChat(id, "report", String.join("\n", rep));
+        int found = 0;
+        for (NeroRequirements.Req q : NeroAI.project.reqs) if (!q.status.startsWith("Не найдено")) found++;
+        NeroHistory.log("Отчёт готов: требований " + NeroAI.project.reqs.size() + ", найдено в плане " + found + ". Подробности и таблица: кнопка «Чат». " + NeroPerf.summary());
+    }
+
+    static void replan(boolean verbose) {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (NeroAI.project == null || mc.world == null) return;
+        long tp = System.nanoTime();
         plan = NeroPlanner.plan(NeroAI.project, base);
+        NeroPerf.put("Планирование и сборка плана", (System.nanoTime() - tp) / 1_000_000L);
         NeroBuilder.labelPlan = plan;
         ClientWorld w = mc.world;
+        long tv = System.nanoTime();
         report = NeroValidator.validate(plan, w.getBottomY(), w.getTopY());
+        NeroPerf.put("Проверка", (System.nanoTime() - tv) / 1_000_000L);
         replaced = 0;
         Set<Long> unl = new HashSet<>();
         for (NeroBuildPlan.Block b : plan.blocks) {

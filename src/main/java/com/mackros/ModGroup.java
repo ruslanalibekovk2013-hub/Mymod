@@ -19,6 +19,7 @@ public final class ModGroup {
                     e.add(ModItems.BRUSH);
                     e.add(ModItems.ERASER);
                     e.add(ModItems.MENU_WAND);
+                    e.add(ModItems.PORTAL_GUN);
                     e.add(ModBlocks.MARKER_A);
                     e.add(ModBlocks.MARKER_B);
                     e.add(ModBlocks.ELEVATOR);

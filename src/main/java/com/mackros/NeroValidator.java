@@ -22,14 +22,16 @@ public final class NeroValidator {
     }
 
     private static final Set<String> ROOT = Set.of("execute", "setblock", "fill", "clone", "tp", "teleport", "scoreboard", "tag", "effect",
-            "particle", "playsound", "title", "tellraw", "summon", "data", "schedule", "kill", "damage", "weather", "time", "gamerule");
+            "particle", "playsound", "title", "tellraw", "summon", "data", "schedule", "kill", "damage", "weather", "time", "gamerule", "nero", "give");
     private static final Pattern NS = Pattern.compile("(?<![A-Za-z0-9_.#])minecraft:([a-z0-9_./]+)");
+
+    private static final Set<String> DMG = Set.of("magic", "indirect_magic", "lightning_bolt", "explosion", "on_fire", "freeze", "thorns", "generic", "player_attack", "mob_attack", "arrow", "fireball");
 
     private static boolean idKnown(String path) {
         Identifier id = new Identifier("minecraft", path);
         return Registries.BLOCK.containsId(id) || Registries.ITEM.containsId(id) || Registries.ENTITY_TYPE.containsId(id)
                 || Registries.STATUS_EFFECT.containsId(id) || Registries.PARTICLE_TYPE.containsId(id) || Registries.SOUND_EVENT.containsId(id)
-                || Registries.PAINTING_VARIANT.containsId(id);
+                || Registries.PAINTING_VARIANT.containsId(id) || DMG.contains(path);
     }
 
     private static boolean balanced(String c) {

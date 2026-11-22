@@ -136,7 +136,7 @@ public final class LocalProvider implements AIProvider {
         return Pattern.compile("(добав|сдела|измен|убер|перемест|установ|выше|ниже|больше|меньше|шире|уже|длинн|коротк|еще|ещё|код|замени|поставь|подними|опусти)").matcher(t).find();
     }
 
-    private static boolean explicitNew(String t) {
+    static boolean explicitNew(String t) {
         return Pattern.compile("(построй|создай|сгенерируй|нужен|нужна|нужно|хочу|сделай мне|новый|новая|проектируй)").matcher(t).find();
     }
 
@@ -227,6 +227,8 @@ public final class LocalProvider implements AIProvider {
         boolean wants = arch || base || houseMulti || NeroFree.has(t, "принтер|3d|3д") || (kind == null && cur == null && (mech || NeroFree.wantsBuilding(t)));
         if (!wants && !nextCustom) return null;
         NeroSpec s;
+        if (nextCustom && cur.bp != null && NeroConfig.remoteReady())
+            return new NeroResponse(true, null, "Этот проект собран по чертежу: правь его в NERO Chat (кнопка «Чат»), тогда изменится только нужный компонент, а остальное сохранится. Чтобы создать новый проект, начни запрос со слова «Создай».", null, null, "Локальный");
         if (nextCustom) {
             s = cur.copy();
             s.desc = s.desc + " " + t;
@@ -241,6 +243,7 @@ public final class LocalProvider implements AIProvider {
         java.util.List<String> f = NeroFree.features(s.desc);
         boolean bld = NeroFree.wantsBuilding(s.desc);
         String ak = NeroArchetypes.detect(s.desc);
+        if (ak != null && (!ak.equals("printer") || (!bld && f.size() <= 1))) s.bp = NeroArchetypes.bp(ak, s.desc);
         s.name = ak != null ? "Проект: " + NeroArchetypes.nameOf(ak) : (bld ? "Постройка" : "Установка") + (f.isEmpty() ? "" : ": " + String.join(", ", f));
         if (s.name.length() > 60) s.name = s.name.substring(0, 60);
         String rp = ak != null ? ("Спроектировал локально: " + NeroArchetypes.nameOf(ak) + ". Работает: " + NeroArchetypes.works(ak) + ". Нажми «КБ», чтобы посмотреть подписи командных блоков, затем «Предпросмотр» или «Построить».")

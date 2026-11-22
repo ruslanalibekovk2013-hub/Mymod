@@ -312,7 +312,7 @@ public final class NeroBuilder {
         }
         if (phase == Phase.SETUP) {
             if (si < setupCmds.size()) {
-                Editor.cmd(mc, setupCmds.get(si++));
+                Editor.cmdAny(mc, setupCmds.get(si++));
                 done++;
                 if (si % 6 == 0) waitTicks = 2;
                 return;

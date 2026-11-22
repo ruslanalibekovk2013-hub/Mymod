@@ -27,6 +27,9 @@ public final class NeroSpec {
     /** Свободная постройка: исходное описание, название и чертёж ИИ (может быть null: тогда локальный композитор). */
     public String desc = "", name = "";
     public JsonObject bp = null;
+    /** Требования запроса (каждое с ID) и привязка к проекту в библиотеке проектов. */
+    public java.util.List<NeroRequirements.Req> reqs = new java.util.ArrayList<>();
+    public String projectId = "";
 
     public NeroSpec copy() {
         NeroSpec s = new NeroSpec();
@@ -34,7 +37,9 @@ public final class NeroSpec {
         s.floors = floors; s.w = w; s.d = d; s.len = len; s.code = code; s.copies = copies;
         s.extras.addAll(extras);
         s.askedStyle = askedStyle; s.askedExtras = askedExtras; s.seed = seed;
-        s.desc = desc; s.name = name; s.bp = bp;
+        s.desc = desc; s.name = name; s.bp = bp; s.projectId = projectId;
+        s.reqs = new java.util.ArrayList<>();
+        for (NeroRequirements.Req r : reqs) s.reqs.add(r.copy());
         return s;
     }
 
@@ -61,6 +66,8 @@ public final class NeroSpec {
         JsonArray a = new JsonArray();
         for (String e : extras) a.add(e);
         o.add("extras", a);
+        o.addProperty("projectId", projectId);
+        if (!reqs.isEmpty()) o.add("reqs", NeroRequirements.toJson(reqs));
         if (kind.equals("custom")) {
             o.addProperty("desc", desc);
             o.addProperty("name", name);
@@ -80,6 +87,9 @@ public final class NeroSpec {
             if (!KINDS.contains(k)) return null;
             NeroSpec s = new NeroSpec();
             s.kind = k;
+            if (o.has("projectId") && !o.get("projectId").isJsonNull()) s.projectId = o.get("projectId").getAsString();
+            if (o.has("reqs") && o.get("reqs").isJsonArray()) s.reqs = NeroRequirements.fromJson(o.getAsJsonArray("reqs"));
+            else if (o.has("requirements") && o.get("requirements").isJsonArray()) s.reqs = NeroRequirements.fromJson(o.getAsJsonArray("requirements"));
             if (k.equals("custom")) {
                 if (o.has("desc") && !o.get("desc").isJsonNull()) s.desc = o.get("desc").getAsString();
                 if (o.has("name") && !o.get("name").isJsonNull()) s.name = o.get("name").getAsString();

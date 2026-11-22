@@ -11,6 +11,11 @@ public final class NeroConfig {
     public static boolean enabled = false;
     public static String url = OpenRouter.CHAT_URL, key = "", model = "auto";
     public static int timeoutSec = 90, maxResponse = 200000, blocksPerTick = 300;
+    /** Выбранная и проверенная модель запоминается и не меняется без разрешения пользователя. */
+    public static String providerId = "openrouter", lockedModel = "", modelName = "", lastStatus = "не проверялось";
+    public static long lastStatusAt = 0;
+    /** Резерв: если модель недоступна, явно разрешить локальный режим. */
+    public static boolean fallbackLocal = false;
     public static final int MAX_OPS = 40000;
 
     private static Path file() { return FabricLoader.getInstance().getConfigDir().resolve("mackros_nero.properties"); }
@@ -35,6 +40,12 @@ public final class NeroConfig {
             maxResponse = NeroSpec.clamp(Math.max(120000, geti(p, "maxResponse", 200000)), 1000, 400000);
             if (!key.isEmpty() && !p.containsKey("enabled")) enabled = true;
             blocksPerTick = NeroSpec.clamp(geti(p, "blocksPerTick", 300), 20, 2000);
+            providerId = p.getProperty("providerId", "openrouter");
+            lockedModel = p.getProperty("lockedModel", "").trim();
+            modelName = p.getProperty("modelName", "").trim();
+            lastStatus = p.getProperty("lastStatus", "не проверялось");
+            lastStatusAt = (long) geti(p, "lastStatusAt", 0) * 1000L;
+            fallbackLocal = "1".equals(p.getProperty("fallbackLocal", "0"));
         } catch (Exception ignored) { }
     }
 
@@ -48,8 +59,21 @@ public final class NeroConfig {
             p.setProperty("timeoutSec", String.valueOf(timeoutSec));
             p.setProperty("maxResponse", String.valueOf(maxResponse));
             p.setProperty("blocksPerTick", String.valueOf(blocksPerTick));
+            p.setProperty("providerId", providerId);
+            p.setProperty("lockedModel", lockedModel);
+            p.setProperty("modelName", modelName);
+            p.setProperty("lastStatus", lastStatus);
+            p.setProperty("lastStatusAt", String.valueOf(lastStatusAt / 1000L));
+            p.setProperty("fallbackLocal", fallbackLocal ? "1" : "0");
             try (var out = Files.newOutputStream(file())) { p.store(out, "Mackros NERO AI (ключ хранится локально, не публикуй этот файл)"); }
         } catch (Exception ignored) { }
+    }
+
+    public static synchronized void status(String s) { lastStatus = s; lastStatusAt = System.currentTimeMillis(); save(); }
+
+    public static String modelInfo() {
+        String m = model.equalsIgnoreCase("auto") || model.isEmpty() ? (lockedModel.isEmpty() ? "auto (ещё не выбрана)" : lockedModel + " (выбрана автоматически и закреплена)") : model + " (задана вручную)";
+        return "Провайдер: " + providerId + "; модель: " + m + "; статус: " + lastStatus + "; резерв локальный: " + (fallbackLocal ? "вкл" : "выкл");
     }
 
     public static boolean isOpenRouter() { return url.contains("openrouter.ai"); }

@@ -13,6 +13,8 @@ public class MackrosMod implements ModInitializer {
         MechReg.init();
         ModItems.init();
         ModGroup.init();
+        NeroPrint.register();
+        NeroPortals.register();
         ServerPlayNetworking.registerGlobalReceiver(Net.GIVE, (server, player, handler, buf, sender) -> {
             String id = buf.readString(64);
             server.execute(() -> MechReg.give(player, id));

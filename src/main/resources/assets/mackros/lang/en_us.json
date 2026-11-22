@@ -259,5 +259,6 @@
   "block.mackros.fx_soul": "FX: Souls",
   "itemGroup.mackros.machines": "Mackros: Machines",
   "key.mackros.rig": "Mechanism constructor",
-  "key.mackros.nero": "NERO AI (constructor)"
+  "key.mackros.nero": "NERO AI (constructor)",
+  "item.mackros.portal_gun": "Portal Gun"
 }

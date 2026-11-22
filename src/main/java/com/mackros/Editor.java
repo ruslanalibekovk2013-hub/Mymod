@@ -47,6 +47,18 @@ public final class Editor {
         if (p != null) p.sendMessage(Text.literal("§b[Mackros] §f" + s), true);
     }
 
+    /** Команда любой длины: длинные (чат-команда ограничена 256 символами) выполняются напрямую на встроенном сервере. */
+    public static void cmdAny(MinecraftClient mc, String c) {
+        net.minecraft.server.MinecraftServer s = mc.getServer();
+        if (c.length() > 240 && s != null && mc.world != null) {
+            net.minecraft.registry.RegistryKey<net.minecraft.world.World> k = mc.world.getRegistryKey();
+            s.execute(() -> {
+                net.minecraft.server.world.ServerWorld w = s.getWorld(k);
+                if (w != null) s.getCommandManager().executeWithPrefix(s.getCommandSource().withWorld(w).withLevel(4).withSilent(), c);
+            });
+        } else cmd(mc, c);
+    }
+
     public static void cmd(MinecraftClient mc, String c) {
         if (mc.player != null) mc.player.networkHandler.sendChatCommand(c);
     }

@@ -53,17 +53,42 @@ public final class HttpProvider implements AIProvider {
                 + "Commands have no leading slash. Allowed roots: execute setblock fill clone tp teleport scoreboard tag effect particle playsound title tellraw summon data schedule kill damage weather time gamerule. "
                 + "Use scoreboard objectives created in \"setup\" (list of one-time commands, e.g. \"scoreboard objectives add {id}_t dummy\"). A single fill/clone volume must be <= 32768 blocks. Never kill @e without filter.\n"
                 + "buttons = control wall buttons: {\"label\":\"Открыть\",\"command\":\"cmd1\\ncmd2\"} (up to 4 commands separated by \\n, run once on click; use them to set scoreboard values your chains react to).\n"
+                + "PARTS AND REQUIREMENTS: give every op a \"part\" string naming the component it belongs to (e.g. \"Шахта\", \"Кабина\", \"Панель кнопок\", \"Дисплей\"); keep related ops under one part name, so the player can later change one component without touching the others. "
+                + "Also add to the root JSON a \"requirements\" array: one entry for EVERY distinct requirement in the player's message (never drop small details such as buttons, indicators, lamps, frames, particles, sizes, colors, positions): {\"id\":\"R1\",\"text\":\"the requirement\",\"category\":\"...\",\"component\":\"exact part, mech, chain or button name that implements it\",\"how\":\"short implementation\"}. Make sure every requirement is really implemented, otherwise say honestly in reply which are not.\n"
                 + "QUALITY: make builds rich and fully functional: real interior (rooms, doors, windows, stairs, lighting, furniture), correct roofs, working mechanisms (use mechs when a matching one exists, otherwise write chains). "
                 + "Keep total ops <= 400 and total blocks <= 30000. Prefer few large box/cylinder ops over many set ops. Reply with the JSON only."
-                + NeroLibrary.promptSection(request);
+                + NeroLibrary.promptSection(request) + NeroModels.promptSection(request);
     }
+
+    private static volatile CompletableFuture<?> current = null;
+    private static final java.util.LinkedHashMap<String, NeroResponse> CACHE = new java.util.LinkedHashMap<>(16, 0.75f, true) {
+        @Override protected boolean removeEldestEntry(java.util.Map.Entry<String, NeroResponse> e) { return size() > 16; }
+    };
+
+    /** Прерывает текущий сетевой запрос к модели. */
+    public static void cancelCurrent() {
+        CompletableFuture<?> c = current;
+        if (c != null) c.cancel(true);
+    }
+
+    private static boolean retryable(String e) { return e != null && (e.startsWith("HTTP 429") || e.startsWith("HTTP 5") || e.startsWith("Сеть")); }
 
     @Override public String name() { return N; }
 
     @Override
     public CompletableFuture<NeroResponse> process(NeroRequest r) {
         try {
-            return OpenRouter.candidates(CLIENT).thenCompose(ms -> attempt(r, ms, 0, null));
+            String key = r.text + "|" + (r.current != null ? r.current.toJson().toString().hashCode() : 0) + "|" + NeroConfig.lockedModel + NeroConfig.model;
+            NeroResponse hit;
+            synchronized (CACHE) { hit = CACHE.get(key); }
+            if (hit != null) {
+                NeroPerf.put("ИИ: ответ из кэша", 0);
+                return CompletableFuture.completedFuture(new NeroResponse(true, hit.spec == null ? null : hit.spec.copy(), hit.reply, hit.pending, null, N + " (кэш)"));
+            }
+            return OpenRouter.candidates(CLIENT).thenCompose(ms -> attempt(r, ms, 0, null, 0)).thenApply(res -> {
+                if (res.ok && res.pending == null && res.spec != null) synchronized (CACHE) { CACHE.put(key, res); }
+                return res;
+            });
         } catch (Exception e) {
             return CompletableFuture.completedFuture(NeroResponse.fail("Неверный адрес API", N));
         }
@@ -71,18 +96,27 @@ public final class HttpProvider implements AIProvider {
 
     private static CompletableFuture<NeroResponse> done(NeroResponse r) { return CompletableFuture.completedFuture(r); }
 
-    private CompletableFuture<NeroResponse> attempt(NeroRequest r, List<String> ms, int i, String last) {
-        if (i >= ms.size()) return done(NeroResponse.fail(last == null ? "нет доступных моделей" : last, N));
+    private CompletableFuture<NeroResponse> attempt(NeroRequest r, List<String> ms, int i, String last, int tries) {
+        if (i >= ms.size()) {
+            if (ms.size() == 1) NeroConfig.status("недоступна: " + last);
+            return done(NeroResponse.fail(ms.size() == 1 ? "модель «" + ms.get(0) + "» недоступна (" + last + ")" : (last == null ? "нет доступных моделей" : last), N));
+        }
         final String m = ms.get(i);
         NeroHistory.log("ИИ: пробую модель " + m);
         return call(m, r, null).thenCompose(a -> {
-            if (!a.ok) return attempt(r, ms, i + 1, a.error);
+            if (!a.ok) {
+                if (retryable(a.error) && tries < 1) {
+                    NeroHistory.log("Временная ошибка (" + a.error + "), повторяю через 1.5 с");
+                    return CompletableFuture.supplyAsync(() -> null, CompletableFuture.delayedExecutor(1500, java.util.concurrent.TimeUnit.MILLISECONDS)).thenCompose(x -> attempt(r, ms, i, a.error, tries + 1));
+                }
+                return attempt(r, ms, i + 1, a.error, 0);
+            }
             List<String> errs = check(a.spec);
             if (errs.isEmpty()) { OpenRouter.markGood(m); return done(a); }
             NeroHistory.log("ИИ: в чертеже ошибки (" + errs.size() + "), прошу исправить");
             return call(m, r, errs).thenCompose(b -> {
                 if (b.ok && check(b.spec).isEmpty()) { OpenRouter.markGood(m); return done(b); }
-                return attempt(r, ms, i + 1, "чертёж с ошибками: " + errs.get(0));
+                return attempt(r, ms, i + 1, "чертёж с ошибками: " + errs.get(0), 0);
             });
         });
     }
@@ -126,9 +160,11 @@ public final class HttpProvider implements AIProvider {
             if (!NeroConfig.key.isEmpty()) b.header("Authorization", "Bearer " + NeroConfig.key);
             if (NeroConfig.isOpenRouter()) { b.header("HTTP-Referer", "https://github.com/mackros-mod"); b.header("X-Title", "Mackros NERO"); }
             HttpRequest req = b.POST(HttpRequest.BodyPublishers.ofString(body.toString())).build();
-            return CLIENT.sendAsync(req, HttpResponse.BodyHandlers.ofString())
+            CompletableFuture<NeroResponse> f = CLIENT.sendAsync(req, HttpResponse.BodyHandlers.ofString())
                     .thenApply(HttpProvider::parse)
                     .exceptionally(e -> NeroResponse.fail("Сеть: " + (e.getCause() != null ? e.getCause().getClass().getSimpleName() : e.getClass().getSimpleName()), N));
+            current = f;
+            return f;
         } catch (Exception e) {
             return done(NeroResponse.fail("Неверный адрес API", N));
         }

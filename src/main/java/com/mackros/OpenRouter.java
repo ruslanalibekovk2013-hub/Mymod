@@ -26,7 +26,11 @@ public final class OpenRouter {
     private static volatile long cachedAt = 0;
     private static volatile String good = null;
 
-    public static void markGood(String m) { good = m; }
+    public static void markGood(String m) {
+        good = m;
+        if (NeroConfig.model.trim().isEmpty() || NeroConfig.model.equalsIgnoreCase("auto")) { NeroConfig.lockedModel = m; NeroConfig.modelName = m; }
+        NeroConfig.status("работает");
+    }
 
     private static boolean zero(JsonElement e) {
         try { return e != null && !e.isJsonNull() && Double.parseDouble(e.getAsString()) == 0.0; } catch (Exception ex) { return false; }
@@ -37,6 +41,7 @@ public final class OpenRouter {
         String m = NeroConfig.model.trim();
         if (!m.isEmpty() && !m.equalsIgnoreCase("auto")) return CompletableFuture.completedFuture(List.of(m));
         if (!NeroConfig.isOpenRouter()) return CompletableFuture.completedFuture(List.of("local-model"));
+        if (!NeroConfig.lockedModel.isEmpty()) return CompletableFuture.completedFuture(List.of(NeroConfig.lockedModel));
         List<String> c = cache;
         if (c != null && System.currentTimeMillis() - cachedAt < 1_800_000L) return CompletableFuture.completedFuture(withGood(c));
         try {

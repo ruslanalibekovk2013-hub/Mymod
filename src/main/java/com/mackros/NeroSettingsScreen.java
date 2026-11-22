@@ -68,13 +68,9 @@ public class NeroSettingsScreen extends Screen {
     private void test() {
         save();
         if (!NeroConfig.remoteReady()) { NeroHistory.log("Проверка: вставь ключ OpenRouter (sk-or-...) и нажми «Сохранить»"); return; }
-        NeroHistory.log("Проверка подключения...");
+        NeroHistory.log("Проверка подключения: отправляю настоящий запрос выбранной модели...");
         MinecraftClient mc = MinecraftClient.getInstance();
-        new HttpProvider().process(new NeroRequest("Построй маленький дом с лифтом", null, null, List.of())).whenComplete((r, e) -> mc.execute(() -> {
-            if (e != null || r == null) NeroHistory.log("Проверка: сбой запроса");
-            else if (r.ok) NeroHistory.log("Проверка пройдена: ИИ вернул проект «" + r.spec.title() + "»");
-            else NeroHistory.log("Проверка не пройдена: " + r.error);
-        }));
+        NeroChatClient.test(msg -> mc.execute(() -> NeroHistory.log(msg)));
     }
 
     @Override
@@ -83,7 +79,7 @@ public class NeroSettingsScreen extends Screen {
         ctx.drawTextWithShadow(textRenderer, "NERO AI: вставь только ключ OpenRouter, остальное настроено само", ox, oy - 2, 0x55FFFF);
         String[] lab = {"API URL", "API Key", "Модель", "Тайм-аут, сек", "Макс. ответ", "Блоков за тик"};
         for (int i = 0; i < lab.length; i++) ctx.drawTextWithShadow(textRenderer, lab[i], ox, oy + 18 + i * 22, 0xFFFFFF);
-        String h = "Достаточно вставить ключ (sk-or-...) и нажать «Сохранить»: адрес API задан, бесплатная модель выбирается автоматически (при отказе берётся следующая). Для локального сервера (Ollama/LM Studio) укажи его адрес, ключ не нужен. Без ключа работает локальный режим: он тоже строит что угодно по описанию.";
+        String h = NeroConfig.modelInfo() + ". Вставь ключ (sk-or-...) и нажми «Проверить»: бесплатная модель выбирается один раз и закрепляется, без твоего разрешения не меняется. Команды в поле запроса: «модель auto» (выбрать заново), «модель <id>», «резерв вкл/выкл» (локальный режим при сбое), «отмена», «скорость».";
         int y = oy + 172;
         for (OrderedText l : textRenderer.wrapLines(Text.literal(h), 372)) { ctx.drawTextWithShadow(textRenderer, l, ox, y, 0xAAAAAA); y += 9; }
         super.render(ctx, mx, my, d);
