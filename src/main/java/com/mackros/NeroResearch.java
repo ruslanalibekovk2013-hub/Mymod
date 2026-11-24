@@ -75,7 +75,9 @@ public final class NeroResearch {
             msgs.add(sys);
             JsonObject u = new JsonObject();
             u.addProperty("role", "user");
-            u.addProperty("content", "Topic: " + topic);
+            StringBuilder known = new StringBuilder();
+            for (JsonObject k : NeroLibrary.relevant(topic, 8)) known.append(k.has("name") ? k.get("name").getAsString() : "").append("; ");
+            u.addProperty("content", "Topic: " + topic + (known.length() > 0 ? "\nAlready in the local library (do not repeat these, look for NEW ideas): " + known : ""));
             msgs.add(u);
             body.add("messages", msgs);
             HttpRequest.Builder b = HttpRequest.newBuilder(URI.create(NeroConfig.url)).timeout(Duration.ofSeconds(Math.max(120, NeroConfig.timeoutSec))).header("Content-Type", "application/json");

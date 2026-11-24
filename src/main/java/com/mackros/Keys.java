@@ -66,7 +66,7 @@ public final class Keys {
     private static void run(MinecraftClient mc, String id) {
         int s = Editor.step;
         switch (id) {
-            case "menu" -> mc.setScreen(new MackrosScreen());
+            case "menu" -> mc.setScreen(new NeroHubScreen());
             case "move" -> mc.setScreen(new MoveScreen());
             case "rig" -> mc.setScreen(new RigScreen());
             case "nero" -> mc.setScreen(new NeroScreen());

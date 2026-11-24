@@ -20,6 +20,11 @@ public final class ModGroup {
                     e.add(ModItems.ERASER);
                     e.add(ModItems.MENU_WAND);
                     e.add(ModItems.PORTAL_GUN);
+                    for (NeroWeaponItems.WI wi : NeroWeaponItems.ALL) e.add(NeroWeaponItems.item(wi.id()));
+                    e.add(NeroBlocks.SMALL_BUTTON);
+                    e.add(NeroBlocks.INDICATOR);
+                    e.add(NeroBlocks.LIFT_PANEL);
+                    e.add(NeroBlocks.DISPLAY);
                     e.add(ModBlocks.MARKER_A);
                     e.add(ModBlocks.MARKER_B);
                     e.add(ModBlocks.ELEVATOR);

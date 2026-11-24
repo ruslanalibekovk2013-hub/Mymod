@@ -15,6 +15,7 @@ public class MackrosClient implements ClientModInitializer {
         NeroProjects.migrateLegacy();
         Keys.register();
         ClientSetup.init();
+        net.minecraft.client.render.block.entity.BlockEntityRendererFactories.register(NeroBlocks.DISPLAY_BE, DisplayRenderer::new);
         ClientTickEvents.END_CLIENT_TICK.register(Keys::tick);
         WorldRenderEvents.LAST.register(Renderer::render);
         HudRenderCallback.EVENT.register(Hud::render);

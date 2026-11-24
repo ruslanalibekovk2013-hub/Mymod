@@ -16,6 +16,8 @@ public final class NeroAI {
     public static String attachment = "";
     /** Каталог: готовые генераторы строятся локально и всегда одинаково, даже если подключена модель. */
     public static boolean forceLocal = false;
+    /** Сколько символов ответа модели уже получено (для индикатора процесса). */
+    public static volatile int progress = 0;
 
     /** Запоминает состояние проекта перед изменением (для «отмени» / «повтор»). */
     public static void pushUndo(NeroSpec before) {
@@ -116,6 +118,12 @@ public final class NeroAI {
             if (mm.find()) { reply(NeroEditor.insertModel(mm.group(1).trim(), Integer.parseInt(mm.group(2)), Integer.parseInt(mm.group(3)), Integer.parseInt(mm.group(4))), done); return; }
         }
         if (low.matches("^библиотека моделей$")) { reply(NeroModels.describe(), done); return; }
+        if (low.matches("^(самотест|selftest)$")) {
+            java.util.List<String> st = NeroSelfTest.run();
+            for (String l : st) NeroHistory.log(l);
+            reply(st.get(st.size() - 1) + ". Подробный отчёт: config/mackros/selftest.txt", done);
+            return;
+        }
         if (low.matches("^(скорость|speed)$")) { reply("Замеры этапов: " + NeroPerf.summary(), done); return; }
         if (low.matches("^(отмена|cancel)$")) { cancel(); return; }
         if (low.matches("^(библиотека|library)(\\s.*)?$")) {

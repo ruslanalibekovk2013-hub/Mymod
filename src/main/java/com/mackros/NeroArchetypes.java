@@ -14,6 +14,10 @@ final class NeroArchetypes {
     static String detect(String t) {
         String mk = NeroMachines.detect(t);
         if (mk != null) return mk;
+        String xk = NeroMega.detect(t);
+        if (xk != null) return xk;
+        String bk = NeroMega.detectBuilder(t);
+        if (bk != null) return bk;
         String wk = NeroWeapons.detect(t);
         if (wk != null) return wk;
         if (NeroFree.has(t, "portal\\s*gun|портал\\w*\\s+(пушк|ружь|пистолет|ган)|пушк\\w*\\s+портал")) return "portalgun";
@@ -29,12 +33,14 @@ final class NeroArchetypes {
     }
 
     static String nameOf(String k) {
+        if (k.startsWith("x_")) return NeroMega.name(k);
         if (k.startsWith("m_")) return NeroMachines.name(k);
         if (k.startsWith("w_")) return NeroWeapons.name(k);
         return switch (k) { case "lift" -> "лифт"; case "portalgun" -> "портальная пушка"; case "printer" -> "3D-принтер"; case "ship" -> "корабль"; case "robot" -> "робот"; case "bridge" -> "мост"; case "train" -> "поезд"; case "computer" -> "компьютер"; case "portal" -> "портал"; default -> k; };
     }
 
     static String works(String k) {
+        if (k.startsWith("x_")) return NeroMega.works(k);
         if (k.startsWith("m_")) return NeroMachines.works(k);
         if (k.startsWith("w_")) return NeroWeapons.works(k);
         return switch (k) {
@@ -55,6 +61,7 @@ final class NeroArchetypes {
 
     /** Чертёж заготовки (его можно хранить в проекте и править точечно через чат). */
     static JsonObject bp(String key, String t) {
+        if (key.startsWith("x_")) return NeroMega.bp(key, t);
         if (key.startsWith("m_")) return NeroMachines.bp(key, t);
         if (key.startsWith("w_")) return NeroWeapons.bp(key, t);
         B b = new B();

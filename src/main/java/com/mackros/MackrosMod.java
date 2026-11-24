@@ -10,6 +10,8 @@ public class MackrosMod implements ModInitializer {
     @Override
     public void onInitialize() {
         ModBlocks.init();
+        NeroBlocks.init();
+        NeroWeaponItems.init();
         MechReg.init();
         ModItems.init();
         ModGroup.init();

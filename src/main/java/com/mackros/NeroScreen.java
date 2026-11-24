@@ -123,7 +123,7 @@ public class NeroScreen extends Screen {
         super.tick();
         if (genBtn != null) {
             genBtn.setMessage(Text.literal(NeroAI.busy() ? "Отмена запроса" : "Сгенерировать"));
-            if (NeroAI.busy()) field.setSuggestion("Идёт запрос к модели… (можно отменить)");
+            if (NeroAI.busy()) field.setSuggestion("Идёт запрос… получено " + NeroAI.progress + " симв. (можно отменить)");
         }
         if (pauseBtn != null) {
             pauseBtn.setMessage(Text.literal(NeroBuilder.paused ? "Продолжить" : "Пауза"));

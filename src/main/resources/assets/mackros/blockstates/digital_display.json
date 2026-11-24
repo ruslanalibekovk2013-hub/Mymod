@@ -1,0 +1,20 @@
+{
+ "variants": {
+  "facing=north": {
+   "model": "mackros:block/digital_display",
+   "y": 0
+  },
+  "facing=east": {
+   "model": "mackros:block/digital_display",
+   "y": 90
+  },
+  "facing=south": {
+   "model": "mackros:block/digital_display",
+   "y": 180
+  },
+  "facing=west": {
+   "model": "mackros:block/digital_display",
+   "y": 270
+  }
+ }
+}

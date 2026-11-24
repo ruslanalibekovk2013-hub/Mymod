@@ -140,6 +140,7 @@ public final class HttpProvider implements AIProvider {
             body.addProperty("model", model);
             body.addProperty("temperature", 0.3);
             body.addProperty("max_tokens", 12000);
+            body.addProperty("stream", true);
             JsonArray msgs = new JsonArray();
             JsonObject sys = new JsonObject();
             sys.addProperty("role", "system");
@@ -160,8 +161,30 @@ public final class HttpProvider implements AIProvider {
             if (!NeroConfig.key.isEmpty()) b.header("Authorization", "Bearer " + NeroConfig.key);
             if (NeroConfig.isOpenRouter()) { b.header("HTTP-Referer", "https://github.com/mackros-mod"); b.header("X-Title", "Mackros NERO"); }
             HttpRequest req = b.POST(HttpRequest.BodyPublishers.ofString(body.toString())).build();
-            CompletableFuture<NeroResponse> f = CLIENT.sendAsync(req, HttpResponse.BodyHandlers.ofString())
-                    .thenApply(HttpProvider::parse)
+            CompletableFuture<NeroResponse> f = CLIENT.sendAsync(req, HttpResponse.BodyHandlers.ofLines())
+                    .thenApply(resp -> {
+                        if (resp.statusCode() / 100 != 2) return NeroResponse.fail("HTTP " + resp.statusCode(), N);
+                        StringBuilder sb = new StringBuilder(), raw = new StringBuilder();
+                        NeroAI.progress = 0;
+                        try {
+                            resp.body().forEach(line -> {
+                                if (raw.length() < 400000) raw.append(line).append('\n');
+                                if (!line.startsWith("data:")) return;
+                                String d = line.substring(5).trim();
+                                if (d.isEmpty() || d.equals("[DONE]")) return;
+                                try {
+                                    JsonObject o = JsonParser.parseString(d).getAsJsonObject();
+                                    JsonArray ch = o.getAsJsonArray("choices");
+                                    if (ch == null || ch.size() == 0) return;
+                                    JsonObject delta = ch.get(0).getAsJsonObject().getAsJsonObject("delta");
+                                    if (delta != null && delta.has("content") && !delta.get("content").isJsonNull()) { sb.append(delta.get("content").getAsString()); NeroAI.progress = sb.length(); }
+                                } catch (Exception ignored) { }
+                                if (sb.length() > NeroConfig.maxResponse) throw new RuntimeException("big");
+                            });
+                        } catch (RuntimeException e) { return NeroResponse.fail("Ответ слишком большой", N); }
+                        if (sb.length() > 0) return parseContent(sb.toString());
+                        return parseRaw(raw.toString());
+                    })
                     .exceptionally(e -> NeroResponse.fail("Сеть: " + (e.getCause() != null ? e.getCause().getClass().getSimpleName() : e.getClass().getSimpleName()), N));
             current = f;
             return f;
@@ -170,10 +193,8 @@ public final class HttpProvider implements AIProvider {
         }
     }
 
-    private static NeroResponse parse(HttpResponse<String> resp) {
-        String raw = resp.body() == null ? "" : resp.body();
-        if (resp.statusCode() / 100 != 2) return NeroResponse.fail("HTTP " + resp.statusCode(), N);
-        if (raw.length() > NeroConfig.maxResponse) return NeroResponse.fail("Ответ слишком большой (" + raw.length() + " > " + NeroConfig.maxResponse + ")", N);
+    /** Разбор «сырого» тела ответа (обычный JSON без потока) с поиском текста модели. */
+    private static NeroResponse parseRaw(String raw) {
         try {
             JsonObject root = JsonParser.parseString(raw).getAsJsonObject();
             String content = null;
@@ -185,7 +206,15 @@ public final class HttpProvider implements AIProvider {
             }
             for (String k : new String[]{"content", "response", "text", "output"})
                 if (content == null && root.has(k) && root.get(k).isJsonPrimitive()) content = root.get(k).getAsString();
-            if (content == null || content.isBlank()) return NeroResponse.fail("В ответе нет текста", N);
+            return parseContent(content);
+        } catch (Exception e) {
+            return NeroResponse.fail("Не удалось разобрать ответ ИИ", N);
+        }
+    }
+
+    private static NeroResponse parseContent(String content) {
+        if (content == null || content.isBlank()) return NeroResponse.fail("В ответе нет текста", N);
+        try {
             int a = content.indexOf('{'), z = content.lastIndexOf('}');
             if (a < 0 || z <= a) return NeroResponse.fail("ИИ не вернул JSON", N);
             JsonObject o = JsonParser.parseString(content.substring(a, z + 1)).getAsJsonObject();

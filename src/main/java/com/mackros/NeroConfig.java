@@ -33,7 +33,8 @@ public final class NeroConfig {
             enabled = "1".equals(p.getProperty("enabled", "0"));
             url = p.getProperty("url", "").trim();
             if (url.isEmpty()) url = OpenRouter.CHAT_URL;
-            key = p.getProperty("key", "").trim();
+            String enc = p.getProperty("keyEnc", "");
+            key = !enc.isEmpty() ? NeroCrypto.dec(enc) : p.getProperty("key", "").trim();
             model = p.getProperty("model", "").trim();
             if (model.isEmpty()) model = "auto";
             timeoutSec = NeroSpec.clamp(Math.max(90, geti(p, "timeoutSec", 90)), 3, 300);
@@ -54,7 +55,8 @@ public final class NeroConfig {
             Properties p = new Properties();
             p.setProperty("enabled", enabled ? "1" : "0");
             p.setProperty("url", url);
-            p.setProperty("key", key);
+            String encKey = NeroCrypto.enc(key);
+            if (encKey.isEmpty()) p.setProperty("key", key); else p.setProperty("keyEnc", encKey);
             p.setProperty("model", model);
             p.setProperty("timeoutSec", String.valueOf(timeoutSec));
             p.setProperty("maxResponse", String.valueOf(maxResponse));

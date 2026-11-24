@@ -1,0 +1,68 @@
+{
+ "variants": {
+  "facing=north,color=0": {
+   "model": "mackros:block/indicator_off",
+   "y": 0
+  },
+  "facing=north,color=1": {
+   "model": "mackros:block/indicator_green",
+   "y": 0
+  },
+  "facing=north,color=2": {
+   "model": "mackros:block/indicator_red",
+   "y": 0
+  },
+  "facing=north,color=3": {
+   "model": "mackros:block/indicator_orange",
+   "y": 0
+  },
+  "facing=east,color=0": {
+   "model": "mackros:block/indicator_off",
+   "y": 90
+  },
+  "facing=east,color=1": {
+   "model": "mackros:block/indicator_green",
+   "y": 90
+  },
+  "facing=east,color=2": {
+   "model": "mackros:block/indicator_red",
+   "y": 90
+  },
+  "facing=east,color=3": {
+   "model": "mackros:block/indicator_orange",
+   "y": 90
+  },
+  "facing=south,color=0": {
+   "model": "mackros:block/indicator_off",
+   "y": 180
+  },
+  "facing=south,color=1": {
+   "model": "mackros:block/indicator_green",
+   "y": 180
+  },
+  "facing=south,color=2": {
+   "model": "mackros:block/indicator_red",
+   "y": 180
+  },
+  "facing=south,color=3": {
+   "model": "mackros:block/indicator_orange",
+   "y": 180
+  },
+  "facing=west,color=0": {
+   "model": "mackros:block/indicator_off",
+   "y": 270
+  },
+  "facing=west,color=1": {
+   "model": "mackros:block/indicator_green",
+   "y": 270
+  },
+  "facing=west,color=2": {
+   "model": "mackros:block/indicator_red",
+   "y": 270
+  },
+  "facing=west,color=3": {
+   "model": "mackros:block/indicator_orange",
+   "y": 270
+  }
+ }
+}

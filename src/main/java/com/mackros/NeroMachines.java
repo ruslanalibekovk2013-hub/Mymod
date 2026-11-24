@@ -20,10 +20,12 @@ final class NeroMachines {
     }
 
     static String name(String k) {
+        if (NeroMega.find(k).key().equals(k)) return NeroMega.name(k);
         return switch (k) { case "m_tower" -> "автобашня"; case "m_bridge" -> "мост-раскладушка"; case "m_house" -> "дом-принтер"; case "m_fort" -> "крепость-автосборка"; default -> "пирамида-генератор"; };
     }
 
     static String works(String k) {
+        if (NeroMega.find(k).key().equals(k)) return NeroMega.works(k);
         return "пульт с кнопками ПУСК, ПАУЗА, СТОП, СНОС, x2, x1 и табличками; справа от пульта механизм сам строит сооружение этап за этапом (командные блоки по сценарию, частицы, табло хода). Кнопка СНОС убирает постройку. Если нажать ПУСК после окончания, сначала нажми СТОП (сброс времени)";
     }
 
@@ -35,6 +37,10 @@ final class NeroMachines {
             case "m_bridge" -> bridge(m);
             case "m_house" -> house(m);
             case "m_fort" -> fort(m);
+            case "m_lighthouse" -> lighthouse(m);
+            case "m_maze" -> maze(m);
+            case "m_village" -> village(m);
+            case "m_stadium" -> stadium(m);
             default -> pyramid(m);
         }
         return b.done();
@@ -293,6 +299,171 @@ final class NeroMachines {
         m.display("Пирамида готова");
         m.finish(new String[]{"ПИРАМИДА-ГЕНЕРАТОР", "Строит ступенчатую пирамиду:", "15 ярусов с кантом,", "вход, зал с сокровищами.", "ПУСК - строить, СНОС - убрать"}, signs("строит пирамиду"),
                 new String[]{"fill {x+14} {y+0} {z-2} {x+48} {y+17} {z+32} minecraft:air"}, "Пирамида-генератор");
+    }
+
+
+    // ------------------------------------------------------------------ маяк
+    private static void lighthouse(M m) {
+        final int H = 18;
+        for (int l = 0; l < H; l++) {
+            int half = Math.max(2, 5 - l / 4);
+            String blk = (l / 2) % 2 == 0 ? "red_concrete" : "white_concrete";
+            int x0 = 24 - half, x1 = 24 + half, z0 = 10 - half, z1 = 10 + half;
+            m.cmd("Слой " + (l + 1) + ": стена", "fill {x+" + x0 + "} {y+" + l + "} {z+" + z0 + "} {x+" + x1 + "} {y+" + l + "} {z+" + z1 + "} minecraft:" + blk);
+            m.cmd("Слой " + (l + 1) + ": просвет", "fill {x+" + (x0 + 1) + "} {y+" + l + "} {z+" + (z0 + 1) + "} {x+" + (x1 - 1) + "} {y+" + l + "} {z+" + (z1 - 1) + "} minecraft:air");
+            m.cmd("Слой " + (l + 1) + ": искры", "particle minecraft:cloud {x+24} {y+" + l + "} {z+10} " + half + " 0 " + half + " 0 20");
+            m.display("Маяк: слой " + (l + 1) + " из " + H);
+            m.wait(12);
+        }
+        m.cmd("Лестница внутри", "fill {x+23} {y+1} {z+9} {x+23} {y+" + (H - 1) + "} {z+9} minecraft:ladder[facing=east]");
+        m.cmd("Дверь: проём", "fill {x+23} {y+1} {z+5} {x+25} {y+3} {z+5} minecraft:air");
+        m.cmd("Крыльцо", "fill {x+22} {y+0} {z+3} {x+26} {y+0} {z+4} minecraft:stone_brick_slab");
+        m.cmd("Галерея: пол", "fill {x+20} {y+" + H + "} {z+6} {x+28} {y+" + H + "} {z+14} minecraft:smooth_stone");
+        m.cmd("Галерея: перила", "fill {x+20} {y+" + (H + 1) + "} {z+6} {x+28} {y+" + (H + 1) + "} {z+14} minecraft:iron_bars outline");
+        m.cmd("Фонарная: стекло", "fill {x+22} {y+" + (H + 1) + "} {z+8} {x+26} {y+" + (H + 3) + "} {z+12} minecraft:glass hollow");
+        m.cmd("Фонарная: лампа", "setblock {x+24} {y+" + (H + 2) + "} {z+10} minecraft:sea_lantern");
+        m.cmd("Крыша", "fill {x+21} {y+" + (H + 4) + "} {z+7} {x+27} {y+" + (H + 4) + "} {z+13} minecraft:red_concrete");
+        m.cmd("Шпиль", "fill {x+24} {y+" + (H + 5) + "} {z+10} {x+24} {y+" + (H + 7) + "} {z+10} minecraft:lightning_rod");
+        for (int i = 0; i < 4; i++) m.cmd("Луч маяка " + (i + 1), "particle minecraft:end_rod {x+24} {y+" + (H + 2) + "} {z+10} " + (i < 2 ? 12 : 0) + " 0 " + (i < 2 ? 0 : 12) + " 0.05 60");
+        m.cmd("Звук завершения", "playsound minecraft:block.bell.use master @a {x+24} {y+3} {z+10} 3 0.7");
+        m.display("Маяк готов");
+        m.finish(new String[]{"МАЯК-АВТОСБОРКА", "Строит маяк слоями:", "18 слоёв в полоску, галерея,", "лампа и шпиль.", "ПУСК - строить, СНОС - убрать"}, signs("строит маяк"),
+                new String[]{"fill {x+18} {y+0} {z+2} {x+30} {y+28} {z+16} minecraft:air"}, "Маяк-автосборка");
+    }
+
+    // ------------------------------------------------------------------ лабиринт
+    private static void maze(M m) {
+        final int n = 10, size = 2 * n + 1;
+        boolean[][] wall = new boolean[size][size];
+        for (boolean[] r : wall) java.util.Arrays.fill(r, true);
+        java.util.Random rnd = new java.util.Random(7);
+        java.util.ArrayDeque<int[]> st = new java.util.ArrayDeque<>();
+        boolean[][] seen = new boolean[n][n];
+        st.push(new int[]{0, 0});
+        seen[0][0] = true;
+        wall[1][1] = false;
+        int[][] dir = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+        while (!st.isEmpty()) {
+            int[] c = st.peek();
+            java.util.List<int[]> opts = new java.util.ArrayList<>();
+            for (int[] d : dir) { int nx = c[0] + d[0], nz = c[1] + d[1]; if (nx >= 0 && nz >= 0 && nx < n && nz < n && !seen[nx][nz]) opts.add(d); }
+            if (opts.isEmpty()) { st.pop(); continue; }
+            int[] d = opts.get(rnd.nextInt(opts.size()));
+            int nx = c[0] + d[0], nz = c[1] + d[1];
+            wall[2 * c[0] + 1 + d[0]][2 * c[1] + 1 + d[1]] = false;
+            wall[2 * nx + 1][2 * nz + 1] = false;
+            seen[nx][nz] = true;
+            st.push(new int[]{nx, nz});
+        }
+        wall[0][1] = false;
+        wall[size - 1][size - 2] = false;
+        m.cmd("Пол лабиринта", "fill {x+18} {y-1} {z+0} {x+38} {y-1} {z+20} minecraft:smooth_stone");
+        m.display("Лабиринт: пол готов");
+        m.wait(10);
+        int runs = 0;
+        for (int z = 0; z < size; z++) {
+            int x = 0;
+            while (x < size) {
+                if (!wall[x][z]) { x++; continue; }
+                int e = x;
+                while (e + 1 < size && wall[e + 1][z]) e++;
+                m.cmd("Стена: ряд " + (z + 1) + ", блоки " + (x + 1) + "-" + (e + 1), "fill {x+" + (18 + x) + "} {y+0} {z+" + z + "} {x+" + (18 + e) + "} {y+2} {z+" + z + "} minecraft:" + ((x + z) % 3 == 0 ? "mossy_stone_bricks" : "stone_bricks"));
+                runs++;
+                if (runs % 8 == 0) m.display("Лабиринт: построено " + runs + " стен");
+                m.wait(4);
+                x = e + 1;
+            }
+        }
+        for (int i = 0; i < 8; i++) m.cmd("Факел " + (i + 1), "setblock {x+" + (19 + (i * 5) % 19) + "} {y+0} {z+" + (1 + (i * 7) % 19) + "} minecraft:lantern");
+        m.cmd("Вход: арка", "fill {x+19} {y+3} {z+0} {x+19} {y+3} {z+0} minecraft:stone_brick_slab");
+        m.cmd("Выход: маяк", "setblock {x+37} {y+3} {z+20} minecraft:sea_lantern");
+        m.cmd("Выход: луч", "particle minecraft:end_rod {x+37} {y+4} {z+20} 0.2 3 0.2 0.02 60");
+        m.cmd("Звук завершения", "playsound minecraft:entity.player.levelup master @a {x+28} {y+1} {z+10} 1 1");
+        m.display("Лабиринт готов");
+        m.finish(new String[]{"ЛАБИРИНТ-ГЕНЕРАТОР", "Строит лабиринт 21x21:", "стены по готовой схеме,", "вход слева, выход справа.", "ПУСК - строить, СНОС - убрать"}, signs("строит лабиринт"),
+                new String[]{"fill {x+17} {y+0} {z-1} {x+39} {y+4} {z+21} minecraft:air", "fill {x+18} {y-1} {z+0} {x+38} {y-1} {z+20} minecraft:grass_block"}, "Лабиринт-генератор");
+    }
+
+    // ------------------------------------------------------------------ деревня
+    private static void village(M m) {
+        String[] roof = {"dark_oak_planks", "spruce_planks", "oak_planks", "birch_planks", "acacia_planks", "jungle_planks"};
+        for (int h = 0; h < 6; h++) {
+            int bx = 18 + (h % 3) * 10, bz = 2 + (h / 3) * 11;
+            String p = "Дом " + (h + 1) + ": ";
+            m.cmd(p + "фундамент", "fill {x+" + bx + "} {y-1} {z+" + bz + "} {x+" + (bx + 6) + "} {y-1} {z+" + (bz + 6) + "} minecraft:cobblestone");
+            m.cmd(p + "стены", "fill {x+" + bx + "} {y+0} {z+" + bz + "} {x+" + (bx + 6) + "} {y+3} {z+" + (bz + 6) + "} minecraft:oak_planks hollow");
+            m.cmd(p + "крыша 1", "fill {x+" + (bx - 1) + "} {y+4} {z+" + (bz - 1) + "} {x+" + (bx + 7) + "} {y+4} {z+" + (bz + 7) + "} minecraft:" + roof[h]);
+            m.cmd(p + "крыша 2", "fill {x+" + bx + "} {y+5} {z+" + bz + "} {x+" + (bx + 6) + "} {y+5} {z+" + (bz + 6) + "} minecraft:" + roof[h]);
+            m.cmd(p + "дверь", "fill {x+" + (bx + 3) + "} {y+0} {z+" + bz + "} {x+" + (bx + 3) + "} {y+1} {z+" + bz + "} minecraft:air");
+            m.cmd(p + "окно 1", "fill {x+" + (bx + 1) + "} {y+2} {z+" + bz + "} {x+" + (bx + 1) + "} {y+2} {z+" + bz + "} minecraft:glass_pane");
+            m.cmd(p + "окно 2", "fill {x+" + (bx + 5) + "} {y+2} {z+" + bz + "} {x+" + (bx + 5) + "} {y+2} {z+" + bz + "} minecraft:glass_pane");
+            m.cmd(p + "лампа", "setblock {x+" + (bx + 3) + "} {y+3} {z+" + (bz + 3) + "} minecraft:lantern[hanging=true]");
+            m.cmd(p + "дым", "particle minecraft:campfire_cosy_smoke {x+" + (bx + 3) + "} {y+6} {z+" + (bz + 3) + "} 0.3 0.5 0.3 0.01 6");
+            m.display("Деревня: дом " + (h + 1) + " из 6");
+            m.wait(15);
+        }
+        m.cmd("Колодец: кольцо", "fill {x+27} {y+0} {z+10} {x+29} {y+0} {z+12} minecraft:cobblestone");
+        m.cmd("Колодец: вода", "setblock {x+28} {y+0} {z+11} minecraft:water");
+        m.cmd("Колодец: опоры", "fill {x+27} {y+1} {z+10} {x+29} {y+2} {z+12} minecraft:oak_fence hollow");
+        m.cmd("Колодец: крыша", "fill {x+27} {y+3} {z+10} {x+29} {y+3} {z+12} minecraft:oak_slab");
+        m.cmd("Дорожка вдоль", "fill {x+17} {y-1} {z+9} {x+39} {y-1} {z+9} minecraft:gravel");
+        m.cmd("Дорожка поперёк", "fill {x+28} {y-1} {z+1} {x+28} {y-1} {z+21} minecraft:gravel");
+        for (int i = 0; i < 4; i++) {
+            m.cmd("Дерево " + (i + 1) + ": ствол", "fill {x+" + (16 + i * 7) + "} {y+0} {z+22} {x+" + (16 + i * 7) + "} {y+4} {z+22} minecraft:oak_log");
+            m.cmd("Дерево " + (i + 1) + ": крона", "fill {x+" + (15 + i * 7) + "} {y+4} {z+21} {x+" + (17 + i * 7) + "} {y+6} {z+23} minecraft:oak_leaves");
+        }
+        for (int i = 0; i < 6; i++) m.cmd("Фонарь на столбе " + (i + 1), "setblock {x+" + (19 + i * 4) + "} {y+0} {z+9} minecraft:lantern");
+        m.cmd("Ограда: перед", "fill {x+16} {y+0} {z+0} {x+40} {y+0} {z+0} minecraft:oak_fence");
+        m.cmd("Ограда: слева", "fill {x+16} {y+0} {z+0} {x+16} {y+0} {z+21} minecraft:oak_fence");
+        m.cmd("Ограда: справа", "fill {x+40} {y+0} {z+0} {x+40} {y+0} {z+21} minecraft:oak_fence");
+        m.cmd("Ворота деревни", "fill {x+27} {y+0} {z+0} {x+29} {y+0} {z+0} minecraft:oak_fence_gate[facing=north]");
+        m.cmd("Звук завершения", "playsound minecraft:entity.villager.celebrate master @a {x+28} {y+1} {z+10} 2 1");
+        m.display("Деревня готова");
+        m.finish(new String[]{"ДЕРЕВНЯ-АВТОСБОРКА", "Строит 6 домов, колодец,", "дорожки, деревья и ограду.", "У каждого дома своя крыша.", "ПУСК - строить, СНОС - убрать"}, signs("строит деревню"),
+                new String[]{"fill {x+15} {y+0} {z-1} {x+41} {y+8} {z+24} minecraft:air", "fill {x+15} {y-1} {z-1} {x+41} {y-1} {z+24} minecraft:grass_block"}, "Деревня-автосборка");
+    }
+
+    // ------------------------------------------------------------------ стадион
+    private static void stadium(M m) {
+        m.cmd("Поле: газон", "fill {x+22} {y-1} {z+4} {x+46} {y-1} {z+18} minecraft:grass_block");
+        for (int i = 0; i < 6; i++) {
+            String[] lines = {"fill {x+22} {y-1} {z+4} {x+46} {y-1} {z+4} minecraft:white_concrete", "fill {x+22} {y-1} {z+18} {x+46} {y-1} {z+18} minecraft:white_concrete", "fill {x+22} {y-1} {z+4} {x+22} {y-1} {z+18} minecraft:white_concrete",
+                    "fill {x+46} {y-1} {z+4} {x+46} {y-1} {z+18} minecraft:white_concrete", "fill {x+34} {y-1} {z+4} {x+34} {y-1} {z+18} minecraft:white_concrete", "fill {x+32} {y-1} {z+10} {x+36} {y-1} {z+12} minecraft:white_concrete"};
+            m.cmd("Разметка " + (i + 1), lines[i]);
+        }
+        m.display("Поле готово");
+        m.wait(15);
+        for (int t = 0; t < 8; t++) {
+            int o = 2 + t;
+            String blk = t % 2 == 0 ? "quartz_block" : "light_gray_concrete";
+            m.cmd("Трибуна, ярус " + (t + 1) + ": кольцо", "fill {x+" + (22 - o) + "} {y+" + t + "} {z+" + (4 - o) + "} {x+" + (46 + o) + "} {y+" + t + "} {z+" + (18 + o) + "} minecraft:" + blk);
+            m.cmd("Трибуна, ярус " + (t + 1) + ": просвет", "fill {x+" + (22 - o + 1) + "} {y+" + t + "} {z+" + (4 - o + 1) + "} {x+" + (46 + o - 1) + "} {y+" + t + "} {z+" + (18 + o - 1) + "} minecraft:air");
+            m.cmd("Трибуна, ярус " + (t + 1) + ": сиденья", "fill {x+" + (22 - o) + "} {y+" + (t + 1) + "} {z+" + (4 - o) + "} {x+" + (46 + o) + "} {y+" + (t + 1) + "} {z+" + (4 - o) + "} minecraft:" + (t % 3 == 0 ? "red_concrete" : t % 3 == 1 ? "blue_concrete" : "yellow_concrete"));
+            m.cmd("Трибуна, ярус " + (t + 1) + ": пыль", "particle minecraft:cloud {x+34} {y+" + t + "} {z+11} 14 0 8 0 25");
+            m.display("Трибуны: ярус " + (t + 1) + " из 8");
+            m.wait(12);
+        }
+        for (int g = 0; g < 2; g++) {
+            int gx = g == 0 ? 22 : 46;
+            m.cmd("Ворота " + (g + 1) + ": штанги", "fill {x+" + gx + "} {y+0} {z+9} {x+" + gx + "} {y+2} {z+13} minecraft:iron_bars outline");
+            m.cmd("Ворота " + (g + 1) + ": сетка", "fill {x+" + (gx + (g == 0 ? -1 : 1)) + "} {y+0} {z+9} {x+" + (gx + (g == 0 ? -1 : 1)) + "} {y+2} {z+13} minecraft:white_stained_glass");
+            m.cmd("Ворота " + (g + 1) + ": свет", "setblock {x+" + gx + "} {y+3} {z+11} minecraft:sea_lantern");
+        }
+        int[][] tw = {{18, 0}, {50, 0}, {18, 22}, {50, 22}};
+        for (int i = 0; i < 4; i++) {
+            m.cmd("Прожектор " + (i + 1) + ": мачта", "fill {x+" + tw[i][0] + "} {y+0} {z+" + tw[i][1] + "} {x+" + tw[i][0] + "} {y+14} {z+" + tw[i][1] + "} minecraft:iron_block");
+            m.cmd("Прожектор " + (i + 1) + ": лампы", "fill {x+" + (tw[i][0] - 1) + "} {y+15} {z+" + tw[i][1] + "} {x+" + (tw[i][0] + 1) + "} {y+15} {z+" + tw[i][1] + "} minecraft:sea_lantern");
+            m.cmd("Прожектор " + (i + 1) + ": свет", "particle minecraft:end_rod {x+" + tw[i][0] + "} {y+15} {z+" + tw[i][1] + "} 0.5 0 0.5 0 12");
+            m.cmd("Прожектор " + (i + 1) + ": луч", "particle minecraft:glow {x+" + ((tw[i][0] + 34) / 2) + "} {y+8} {z+" + ((tw[i][1] + 11) / 2) + "} 3 3 3 0 20");
+        }
+        m.cmd("Вход: тоннель", "fill {x+33} {y+0} {z+0} {x+35} {y+2} {z+3} minecraft:air");
+        m.cmd("Вход: арка", "fill {x+32} {y+3} {z+0} {x+36} {y+3} {z+0} minecraft:stone_bricks");
+        m.cmd("Табло: рама", "fill {x+30} {y+9} {z+2} {x+38} {y+11} {z+2} minecraft:black_concrete");
+        m.cmd("Табло: счёт", "fill {x+31} {y+10} {z+1} {x+37} {y+10} {z+1} minecraft:lime_concrete");
+        m.cmd("Звук завершения", "playsound minecraft:block.bell.use master @a {x+34} {y+2} {z+11} 3 1");
+        m.display("Стадион готов");
+        m.finish(new String[]{"СТАДИОН-АВТОСБОРКА", "Строит стадион:", "поле с разметкой, 8 ярусов", "трибун, ворота, прожекторы.", "ПУСК - строить, СНОС - убрать"}, signs("строит стадион"),
+                new String[]{"fill {x+10} {y+0} {z-8} {x+56} {y+18} {z+30} minecraft:air", "fill {x+20} {y-1} {z+2} {x+48} {y-1} {z+20} minecraft:grass_block"}, "Стадион-автосборка");
     }
 
     private NeroMachines() { }

@@ -13,7 +13,7 @@ public final class ClientSetup {
     public static void init() {
         Hooks.elevatorScreen = pos -> MinecraftClient.getInstance().setScreen(new ElevatorScreen(pos));
         Hooks.calcScreen = () -> MinecraftClient.getInstance().setScreen(new CalculatorScreen());
-        Hooks.panelScreen = () -> MinecraftClient.getInstance().setScreen(new MackrosScreen());
+        Hooks.panelScreen = () -> MinecraftClient.getInstance().setScreen(new NeroHubScreen());
         Hooks.marker = (pos, second) -> {
             if (second) Editor.pos2 = pos; else Editor.pos1 = pos;
             Editor.msg("Маркер " + (second ? "B" : "A") + ": " + pos.getX() + " " + pos.getY() + " " + pos.getZ());
@@ -43,7 +43,7 @@ public final class ClientSetup {
                 case 1 -> { if (sneak) Editor.copy(mc); else Editor.paste(mc); }
                 case 2 -> Editor.sphereBlock(mc, Editor.offhandOrPalette(mc), sneak);
                 case 3 -> Editor.sphereBlock(mc, Blocks.AIR.getDefaultState(), false);
-                default -> mc.setScreen(sneak ? new MoveScreen() : new MackrosScreen());
+                default -> mc.setScreen(sneak ? new MoveScreen() : new NeroHubScreen());
             }
             return TypedActionResult.success(st);
         });

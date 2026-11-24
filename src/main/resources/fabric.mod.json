@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "mackros",
-  "version": "1.14.0",
+  "version": "1.15.0",
   "name": "Mackros",
   "description": "Редактор построек, меню переноса, схемы, жезлы, лифты, редстоун-блоки с пультом и КБ-механизмы.",
   "authors": ["Mackros"],
