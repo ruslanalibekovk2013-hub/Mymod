@@ -1,5 +1,7 @@
 package com.mackros;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -7,15 +9,20 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.text.OrderedText;
+import net.minecraft.text.Style;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/** Интерфейс NERO AI: запрос, диалог, информация о проекте, предпросмотр, постройка, журнал. */
+/**
+ * NERO AI: одно окно-диалог. Пишешь, что построить (или задаёшь вопрос), прикрепляешь файлы, видишь, как модель думает,
+ * затем «Предпросмотр» и «Построить». Всё редкое спрятано в «Ещё».
+ */
 public class NeroScreen extends Screen {
     private static BlockPos base = null;
     private static NeroBuildPlan plan = null;
@@ -23,15 +30,29 @@ public class NeroScreen extends Screen {
     private static int replaced = 0, unloaded = 0;
     private static boolean confirm = false;
     private static String draft = "";
+    private static boolean askMode = false, more = false;
+    private static final StringBuilder CHAT_BUF = new StringBuilder();
+    private static volatile boolean chatStreaming = false;
 
-    private TextFieldWidget field;
-    private ButtonWidget pauseBtn, buildBtn, genBtn;
-    private int ox, oy;
+    private TextFieldWidget field, tokenField;
+    private ButtonWidget pauseBtn, modeBtn, sendBtn;
+    private final List<ButtonWidget> moreBtns = new ArrayList<>();
+    private final List<int[]> chips = new ArrayList<>();
+    private final List<Object[]> rows = new ArrayList<>();
+    private List<OrderedText> thoughtLines = new ArrayList<>();
+    private int ox, oy, W, H, chatTop, scrollUp = 0, lastLog = -1, lastThought = -1, lastW = -1;
+    private boolean lastChat = false;
 
     public NeroScreen() {
         super(Text.literal("NERO AI"));
         MinecraftClient mc = MinecraftClient.getInstance();
         if (base == null) base = (NeroStore.builtBase != null && NeroAI.project != null && NeroStore.builtSpec != null && NeroAI.project.kind.equals(NeroStore.builtSpec.kind)) ? NeroStore.builtBase : defaultBase(mc);
+    }
+
+    /** Открывает NERO сразу в режиме вопросов по проекту (бывший «NERO Chat»). */
+    public static NeroScreen chat() {
+        askMode = true;
+        return new NeroScreen();
     }
 
     private static BlockPos defaultBase(MinecraftClient mc) {
@@ -47,63 +68,97 @@ public class NeroScreen extends Screen {
         return b;
     }
 
+    private ButtonWidget moreBtn(String label, int x, int y, int w, Runnable r) {
+        ButtonWidget b = btn(label, x, y, w, 15, r);
+        b.visible = more;
+        moreBtns.add(b);
+        return b;
+    }
+
+    private int actionY() { return oy + H - 21; }
+
+    private int inputY() { return actionY() - 23; }
+
     @Override
     protected void init() {
-        ox = width / 2 - 190;
-        oy = Math.max(4, (height - 206) / 2);
-        field = new TextFieldWidget(textRenderer, ox, oy + 12, 372, 18, Text.literal("запрос"));
-        field.setMaxLength(400);
+        W = Math.min(width - 12, 420);
+        H = Math.min(height - 10, 256);
+        ox = (width - W) / 2;
+        oy = (height - H) / 2;
+        moreBtns.clear();
+        boolean ready = NeroConfig.remoteReady();
+        chatTop = oy + 22;
+        tokenField = null;
+        if (!ready) {
+            tokenField = new TextFieldWidget(textRenderer, ox + 8, oy + 49, W - 112, 16, Text.literal("токен"));
+            tokenField.setMaxLength(300);
+            tokenField.setSuggestion("sk-or-v1-… вставь токен OpenRouter");
+            tokenField.setChangedListener(t -> tokenField.setSuggestion(t.isEmpty() ? "sk-or-v1-… вставь токен OpenRouter" : ""));
+            tokenField.setRenderTextProvider((s, i) -> OrderedText.styledForwardsVisitedString("*".repeat(s.length()), Style.EMPTY));
+            addDrawableChild(tokenField);
+            btn("Подключить", ox + W - 100, oy + 49, 92, 16, this::connect);
+            chatTop = oy + 72;
+        }
+        btn("Настройки", ox + W - 76, oy + 3, 70, 14, () -> MinecraftClient.getInstance().setScreen(new NeroSettingsScreen()));
+
+        int iy = inputY();
+        modeBtn = btn("", ox + 8, iy, 58, 18, () -> { askMode = !askMode; refreshLabels(); });
+        btn("Файл", ox + 70, iy, 40, 18, () -> MinecraftClient.getInstance().setScreen(new NeroFilePickerScreen(this)));
+        field = new TextFieldWidget(textRenderer, ox + 114, iy, W - 114 - 88, 18, Text.literal("запрос"));
+        field.setMaxLength(2000);
         field.setText(draft);
-        field.setSuggestion(draft.isEmpty() ? "Опиши, что построить: «Построй лифт на 10 этажей»" : "");
-        field.setChangedListener(t -> { draft = t; field.setSuggestion(t.isEmpty() ? "Опиши, что построить: «Построй лифт на 10 этажей»" : ""); });
+        field.setChangedListener(t -> { draft = t; refreshLabels(); });
         addDrawableChild(field);
-        setInitialFocus(field);
+        if (tokenField == null) setInitialFocus(field); else setInitialFocus(tokenField);
+        sendBtn = btn("", ox + W - 80, iy, 72, 18, this::primary);
 
-        int y1 = oy + 34, y2 = oy + 54, y3 = oy + 74;
-        genBtn = btn("Сгенерировать", ox, y1, 90, 18, () -> { if (NeroAI.busy()) NeroAI.cancel(); else generate(); });
-        btn("Предпросмотр", ox + 94, y1, 90, 18, this::preview);
-        buildBtn = btn("Построить", ox + 188, y1, 90, 18, this::build);
-        btn("Откатить", ox + 282, y1, 90, 18, () -> NeroBuilder.rollback(MinecraftClient.getInstance()));
-        pauseBtn = btn("Пауза", ox, y2, 70, 18, () -> { if (NeroBuilder.paused) NeroBuilder.resume(); else NeroBuilder.pause(); });
-        btn("Отмена", ox + 75, y2, 70, 18, NeroBuilder::cancel);
-        btn("Очистить", ox + 150, y2, 70, 18, () -> {
-            NeroAI.clear(); plan = null; report = null; confirm = false; NeroBuilder.clearPreview(); NeroBuilder.labelPlan = null; NeroHistory.clearLog(); draft = ""; field.setText("");
-        });
-        btn("Настройки", ox + 225, y2, 70, 18, () -> MinecraftClient.getInstance().setScreen(new NeroSettingsScreen()));
-        btn("Исправить", ox + 300, y2, 72, 18, this::fix);
+        int ay = actionY();
+        btn("Построить", ox + 8, ay, 92, 16, this::build);
+        btn("Предпросмотр", ox + 104, ay, 92, 16, this::preview);
+        btn("Откатить", ox + 200, ay, 66, 16, () -> NeroBuilder.rollback(MinecraftClient.getInstance()));
+        pauseBtn = btn("Пауза", ox + 270, ay, 66, 16, () -> { if (NeroBuilder.paused) NeroBuilder.resume(); else NeroBuilder.pause(); });
+        btn("Ещё", ox + 340, ay, W - 348, 16, () -> { more = !more; for (ButtonWidget b : moreBtns) b.visible = more; });
 
-        int x = ox;
-        x = row(x, y3, "Я", 28, () -> {
-            MinecraftClient mc = MinecraftClient.getInstance();
-            if (mc.player != null) { base = mc.player.getBlockPos().offset(mc.player.getHorizontalFacing(), 5); afterMove(); }
-        });
-        x = row(x, y3, "X-", 26, () -> { base = base.add(-1, 0, 0); afterMove(); });
-        x = row(x, y3, "X+", 26, () -> { base = base.add(1, 0, 0); afterMove(); });
-        x = row(x, y3, "Z-", 26, () -> { base = base.add(0, 0, -1); afterMove(); });
-        x = row(x, y3, "Z+", 26, () -> { base = base.add(0, 0, 1); afterMove(); });
-        x = row(x, y3, "Y-", 26, () -> { base = base.add(0, -1, 0); afterMove(); });
-        x = row(x, y3, "Y+", 26, () -> { base = base.add(0, 1, 0); afterMove(); });
-        x = row(x, y3, "Ред.", 34, () -> MinecraftClient.getInstance().setScreen(new NeroEditorScreen()));
-        x = row(x, y3, "КБ", 26, () -> {
+        int my = iy - 19;
+        moreBtn("Исправить", ox + 8, my, 62, this::fix);
+        moreBtn("Отчёт", ox + 74, my, 44, this::reportToLog);
+        moreBtn("Редактор", ox + 122, my, 56, () -> MinecraftClient.getInstance().setScreen(new NeroEditorScreen()));
+        moreBtn("КБ", ox + 182, my, 30, () -> {
             if (plan == null && NeroAI.project != null) replan(false);
             if (plan == null) { NeroHistory.log("Сначала сгенерируй проект"); return; }
             MinecraftClient.getInstance().setScreen(new NeroCbScreen(plan, report));
         });
-        x = row(x, y3, "Чат", 32, () -> MinecraftClient.getInstance().setScreen(new NeroChatScreen()));
-        row(x, y3, "Меню", 60, () -> MinecraftClient.getInstance().setScreen(new NeroCatalogScreen()));
-
-        List<String> h = NeroHistory.requests();
-        for (int i = 0; i < 3; i++) {
-            int idx = h.size() - 1 - i;
-            if (idx < 0) break;
-            final String q = h.get(idx);
-            btn(textRenderer.trimToWidth(q, 112), ox + i * 125, oy + 172, 122, 14, () -> { field.setText(q); setFocused(field); });
-        }
+        moreBtn("Проекты", ox + 216, my, 52, () -> MinecraftClient.getInstance().setScreen(new NeroProjectsScreen()));
+        moreBtn("Каталог", ox + 272, my, 50, () -> MinecraftClient.getInstance().setScreen(new NeroCatalogScreen()));
+        moreBtn("Стоп стройки", ox + 326, my, W - 334, NeroBuilder::cancel);
+        int py = my - 17;
+        int x = ox + 8;
+        x = pt("Я", x, py, 24, () -> {
+            MinecraftClient mc = MinecraftClient.getInstance();
+            if (mc.player != null) { base = mc.player.getBlockPos().offset(mc.player.getHorizontalFacing(), 5); afterMove(); }
+        });
+        x = pt("X-", x, py, 24, () -> { base = base.add(-1, 0, 0); afterMove(); });
+        x = pt("X+", x, py, 24, () -> { base = base.add(1, 0, 0); afterMove(); });
+        x = pt("Z-", x, py, 24, () -> { base = base.add(0, 0, -1); afterMove(); });
+        x = pt("Z+", x, py, 24, () -> { base = base.add(0, 0, 1); afterMove(); });
+        x = pt("Y-", x, py, 24, () -> { base = base.add(0, -1, 0); afterMove(); });
+        x = pt("Y+", x, py, 24, () -> { base = base.add(0, 1, 0); afterMove(); });
+        moreBtn("Очистить", x + 8, py, 56, () -> {
+            NeroAI.clear(); plan = null; report = null; confirm = false; NeroBuilder.clearPreview(); NeroBuilder.labelPlan = null; NeroHistory.clearLog(); NeroAttach.clear(); draft = ""; field.setText("");
+        });
+        moreBtn("Мышление", x + 68, py, 62, () -> { NeroConfig.deepThink = !NeroConfig.deepThink; NeroConfig.save(); NeroHistory.log("Глубокое мышление: " + (NeroConfig.deepThink ? "включено (сначала план, потом чертёж)" : "выключено (быстрее, но проще)")); });
+        refreshLabels();
     }
 
-    private int row(int x, int y, String label, int w, Runnable r) {
-        btn(label, x, y, w, 16, r);
+    private int pt(String label, int x, int y, int w, Runnable r) {
+        moreBtn(label, x, y, w, r);
         return x + w + 2;
+    }
+
+    private void refreshLabels() {
+        if (modeBtn != null) modeBtn.setMessage(Text.literal(askMode ? "Вопрос" : "Строить"));
+        if (sendBtn != null) sendBtn.setMessage(Text.literal(NeroAI.busy() || chatStreaming ? "Стоп" : (askMode ? "Спросить" : "Создать")));
+        if (field != null) field.setSuggestion(field.getText().isEmpty() ? (askMode ? "Спроси про проект или попроси изменить часть" : "Что построить? Например: «лифт на 10 этажей со стеклом»") : "");
     }
 
     private void afterMove() {
@@ -112,38 +167,179 @@ public class NeroScreen extends Screen {
         if (NeroAI.project != null) replan(false);
     }
 
+    private void connect() {
+        String t = tokenField == null ? "" : tokenField.getText().trim();
+        if (t.isEmpty()) return;
+        NeroConfig.key = t;
+        NeroConfig.enabled = true;
+        if (NeroConfig.url.isEmpty()) NeroConfig.url = OpenRouter.CHAT_URL;
+        NeroConfig.save();
+        NeroHistory.log("Токен сохранён. Проверяю подключение настоящим запросом…");
+        MinecraftClient mc = MinecraftClient.getInstance();
+        NeroChatClient.test(msg -> mc.execute(() -> NeroHistory.log(msg)));
+        mc.setScreen(new NeroScreen());
+    }
+
+    private void primary() {
+        if (NeroAI.busy() || chatStreaming) { stop(); return; }
+        submit();
+    }
+
+    private void stop() {
+        if (NeroAI.busy()) NeroAI.cancel();
+        if (chatStreaming) NeroChatClient.cancel();
+    }
+
+    private void submit() {
+        String text = field.getText().trim();
+        if (text.isEmpty()) {
+            if (!askMode && NeroAI.project != null) replan(true);
+            return;
+        }
+        field.setText("");
+        draft = "";
+        scrollUp = 0;
+        confirm = false;
+        if (askMode) ask(text); else generate(text);
+    }
+
+    private void generate(String text) {
+        NeroAI.ask(text, r -> {
+            if (r.ok && NeroAI.project != null && r.spec != null) { replan(true); postReport(); }
+        });
+    }
+
+    private static String chatId() { return NeroAI.project != null && !NeroAI.project.projectId.isEmpty() ? NeroAI.project.projectId : "_general"; }
+
+    /** Вопросы и точечные правки проекта: настоящий потоковый запрос к модели с контекстом проекта и вложениями. */
+    private void ask(String text) {
+        String id = chatId();
+        NeroHistory.log("Вы: " + text);
+        NeroProjects.appendChat(id, "user", text);
+        if (!NeroConfig.remoteReady()) {
+            NeroHistory.log("NERO: вопросы идут через модель. Вставь токен OpenRouter вверху, ответы не имитируются.");
+            return;
+        }
+        JsonArray msgs = new JsonArray();
+        JsonObject sys = new JsonObject();
+        sys.addProperty("role", "system");
+        sys.addProperty("content", NeroChatClient.systemPrompt(NeroAI.project, plan, report, text) + NeroAttach.textBlock());
+        msgs.add(sys);
+        List<NeroProjects.Msg> hist = NeroProjects.chat(id);
+        int from = Math.max(0, hist.size() - 20);
+        for (int i = from; i < hist.size(); i++) {
+            NeroProjects.Msg m = hist.get(i);
+            if (!m.role().equals("user") && !m.role().equals("assistant")) continue;
+            JsonObject o = new JsonObject();
+            o.addProperty("role", m.role());
+            JsonArray withImg = (i == hist.size() - 1 && m.role().equals("user")) ? NeroAttach.userContent(m.text()) : null;
+            if (withImg != null) o.add("content", withImg); else o.addProperty("content", m.text());
+            msgs.add(o);
+        }
+        synchronized (CHAT_BUF) { CHAT_BUF.setLength(0); }
+        chatStreaming = true;
+        NeroBrain.reset("Думаю над ответом");
+        long t0 = System.nanoTime();
+        MinecraftClient mc = MinecraftClient.getInstance();
+        NeroChatClient.stream(msgs, NeroAttach.hasImages(), d -> { synchronized (CHAT_BUF) { CHAT_BUF.append(d); } }, err -> mc.execute(() -> finishChat(id, err, t0)));
+    }
+
+    private static void finishChat(String id, String err, long t0) {
+        String full;
+        synchronized (CHAT_BUF) { full = CHAT_BUF.toString(); }
+        chatStreaming = false;
+        NeroBrain.finish();
+        NeroPerf.put("Чат: ответ модели", (System.nanoTime() - t0) / 1_000_000L);
+        if (err != null && full.isBlank()) { NeroHistory.log("Ошибка чата: " + err); return; }
+        String patch = NeroPatch.extract(full);
+        String text = NeroPatch.stripPatch(full);
+        if (!text.isBlank()) {
+            String t = text + (err != null ? "\n(ответ оборван: " + err + ")" : "");
+            NeroHistory.log("NERO: " + t);
+            NeroProjects.appendChat(id, "assistant", t);
+        }
+        if (patch == null || NeroAI.project == null) return;
+        String res = NeroEditor.apply(patch, "Чат");
+        NeroProjects.appendChat(id, "system", res);
+        NeroHistory.log("NERO: " + res);
+    }
+
+    private void reportToLog() {
+        if (NeroAI.project == null) { NeroHistory.log("Проект не открыт"); return; }
+        if (plan == null) replan(false);
+        for (String l : NeroReport.make(NeroAI.project, plan, report)) NeroHistory.log("Отчёт: " + l);
+    }
+
+    public void filesDragged(List<Path> paths) { drop(paths); }
+
+    public void onFilesDropped(List<Path> paths) { drop(paths); }
+
+    private void drop(List<Path> paths) {
+        for (Path p : paths) NeroHistory.log(NeroAttach.add(p));
+    }
+
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if ((keyCode == 257 || keyCode == 335) && field.isFocused()) { generate(); return true; }
+        if (keyCode == 257 || keyCode == 335) {
+            if (tokenField != null && tokenField.isFocused()) { connect(); return true; }
+            if (field != null && field.isFocused()) { if (!NeroAI.busy() && !chatStreaming) submit(); return true; }
+        }
         return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public boolean mouseClicked(double mx, double my, int button) {
+        for (int[] c : chips) {
+            if (mx >= c[0] && mx <= c[2] && my >= c[1] && my <= c[3]) { NeroAttach.remove(c[4]); return true; }
+        }
+        return super.mouseClicked(mx, my, button);
+    }
+
+    private void scrollBy(int d) { scrollUp = Math.max(0, scrollUp - d); }
+
+    public boolean mouseScrolled(double mx, double my, double amount) { scrollBy(amount > 0 ? 3 : -3); return true; }
+
+    public boolean mouseScrolled(double mx, double my, double h, double v) { scrollBy(v > 0 ? 3 : -3); return true; }
+
+    private static int colorOf(String l) {
+        if (l.startsWith("Вы:")) return NeroUi.USER;
+        if (l.startsWith("NERO") || l.startsWith("План NERO")) return NeroUi.OK;
+        if (l.startsWith("ОШИБКА") || l.startsWith("Ошибка") || l.startsWith("Постройка отклонена") || l.startsWith("Модель недоступна")) return NeroUi.ERR;
+        if (l.startsWith("Внимание") || l.startsWith("Вложение")) return NeroUi.WARN;
+        if (l.startsWith("Проверено") || l.startsWith("Проверка пройдена") || l.startsWith("Прикреплён") || l.startsWith("Подключение работает")) return NeroUi.OK;
+        return NeroUi.DIM;
+    }
+
+    private void rebuildRows() {
+        rows.clear();
+        int wrap = W - 30;
+        for (String l : NeroHistory.log()) {
+            int c = colorOf(l);
+            for (String para : l.split("\n")) {
+                for (OrderedText o : textRenderer.wrapLines(Text.literal(para), wrap)) rows.add(new Object[]{o, c});
+            }
+        }
     }
 
     @Override
     public void tick() {
         super.tick();
-        if (genBtn != null) {
-            genBtn.setMessage(Text.literal(NeroAI.busy() ? "Отмена запроса" : "Сгенерировать"));
-            if (NeroAI.busy()) field.setSuggestion("Идёт запрос… получено " + NeroAI.progress + " симв. (можно отменить)");
-        }
         if (pauseBtn != null) {
             pauseBtn.setMessage(Text.literal(NeroBuilder.paused ? "Продолжить" : "Пауза"));
             pauseBtn.active = NeroBuilder.running;
         }
+        boolean chatNow = NeroAI.busy() || chatStreaming;
+        if (chatNow != lastChat) { lastChat = chatNow; refreshLabels(); }
+        int n = NeroHistory.log().size();
+        if (n != lastLog || lastW != W) { lastLog = n; lastW = W; rebuildRows(); }
+        String th = chatStreaming ? snapshotChat() : NeroBrain.thought();
+        if (chatNow && th.length() != lastThought) {
+            lastThought = th.length();
+            thoughtLines = new ArrayList<>(textRenderer.wrapLines(Text.literal(th.replace('\n', ' ')), W - 34));
+        } else if (!chatNow && !thoughtLines.isEmpty()) { thoughtLines = new ArrayList<>(); lastThought = -1; }
     }
 
-    private void generate() {
-        String text = field.getText().trim();
-        confirm = false;
-        if (text.isEmpty()) {
-            if (NeroAI.project != null) replan(true); else NeroHistory.log("Введи запрос");
-            return;
-        }
-        NeroAI.ask(text, r -> {
-            draft = "";
-            if (field != null) field.setText("");
-            if (r.ok && NeroAI.project != null && r.spec != null) { replan(true); postReport(); }
-        });
-    }
+    private static String snapshotChat() { synchronized (CHAT_BUF) { return CHAT_BUF.toString(); } }
 
     /** Пересчитывает план для текущей точки и проверяет его. */
     static NeroBuildPlan plan() { return plan; }
@@ -179,7 +375,7 @@ public class NeroScreen extends Screen {
         NeroProjects.appendChat(id, "report", String.join("\n", rep));
         int found = 0;
         for (NeroRequirements.Req q : NeroAI.project.reqs) if (!q.status.startsWith("Не найдено")) found++;
-        NeroHistory.log("Отчёт готов: требований " + NeroAI.project.reqs.size() + ", найдено в плане " + found + ". Подробности и таблица: кнопка «Чат». " + NeroPerf.summary());
+        NeroHistory.log("Отчёт готов: требований " + NeroAI.project.reqs.size() + ", найдено в плане " + found + ". Подробности: «Ещё» → «Отчёт». " + NeroPerf.summary());
     }
 
     static void replan(boolean verbose) {
@@ -312,59 +508,90 @@ public class NeroScreen extends Screen {
     @Override
     public void render(DrawContext ctx, int mx, int my, float d) {
         renderBackground(ctx, mx, my, d);
-        ctx.drawTextWithShadow(textRenderer, "NERO AI — конструктор", ox, oy, 0x55FFFF);
-        String prov = NeroConfig.remoteReady() ? "ИИ: внешний" : "ИИ: локальный";
-        String st = NeroAI.busy() ? "думаю..." : NeroBuilder.running ? (NeroBuilder.paused ? "пауза" : "строю") : "готов";
-        ctx.drawTextWithShadow(textRenderer, prov + " | " + st, ox + 372 - textRenderer.getWidth(prov + " | " + st), oy, 0xAAAAAA);
-        super.render(ctx, mx, my, d);
-
-        int ix = ox, iy = oy + 96;
-        ctx.fill(ix - 2, iy - 2, ix + 182, iy + 74, 0x66000000);
-        List<String> info = new ArrayList<>();
+        NeroUi.box(ctx, ox, oy, ox + W, oy + H, NeroUi.BG, NeroUi.LINE);
+        ctx.fill(ox + 1, oy + 1, ox + W - 1, oy + 20, NeroUi.PANEL2);
         NeroSpec s = NeroAI.project;
-        if (s == null) info.add("Проект: нет");
-        else {
-            info.add("Проект: " + s.title());
-            if (s.floors > 0) info.add("Этажи: " + s.floors);
-            if (s.kind.equals("house")) {
-                info.add("Гараж: " + (s.extras.contains("garage") ? "есть (" + s.garageSide + ")" : "нет") + "  Бассейн: " + (s.extras.contains("pool") ? "есть" : "нет"));
-                info.add("Освещение: " + (s.extras.contains("lighting") ? "автоматическое" : "внутреннее") + "  Ворота: " + (s.extras.contains("autogate") || s.extras.contains("garage") ? "авто" : "нет"));
-            }
-            if (plan != null) {
-                info.add("Размер: " + plan.sx() + "x" + plan.sy() + "x" + plan.sz() + "  Механизмов: " + plan.mechanisms());
-                info.add("Блоков: " + plan.solid() + "  КБ: " + plan.cbs.size() + (report == null ? " (не проверены)" : report.ok() ? " (команды проверены)" : " (НЕ ГОТОВО)"));
-                info.add("Этапов: " + plan.stages() + " (порции по " + NeroConfig.blocksPerTick + ")");
-                info.add("Точка: " + base.getX() + " " + base.getY() + " " + base.getZ());
-                info.add(report == null ? "" : (report.ok() ? "Проверка: ОК" : "Проверка: ошибок " + report.errors.size()) + (replaced > 0 ? "  замена: " + replaced : ""));
-            } else info.add("Точка: " + base.getX() + " " + base.getY() + " " + base.getZ());
-        }
-        int y = iy;
-        for (String l : info) {
-            if (y > iy + 64) break;
-            int color = l.startsWith("Проверка: ошибок") ? 0xFF5555 : (l.startsWith("Проверка: ОК") ? 0x55FF55 : 0xFFFFFF);
-            ctx.drawTextWithShadow(textRenderer, textRenderer.trimToWidth(l, 178), ix, y, color);
-            y += 9;
+        String title = "NERO AI" + (s != null ? "  ·  " + s.title() : "");
+        ctx.drawTextWithShadow(textRenderer, textRenderer.trimToWidth(title, W - 250), ox + 8, oy + 6, NeroUi.ACCENT);
+        boolean ready = NeroConfig.remoteReady();
+        boolean busy = NeroAI.busy() || chatStreaming;
+        String chip = busy ? NeroUi.spinner() + " думает" : NeroBuilder.running ? (NeroBuilder.paused ? "● пауза" : "● строю") : ready ? "● " + (NeroConfig.lockedModel.isEmpty() ? "модель: авто" : NeroConfig.lockedModel) : "● локальный режим";
+        int chipCol = busy ? NeroUi.WARN : ready ? NeroUi.OK : NeroUi.ERR;
+        String chipT = textRenderer.trimToWidth(chip, 150);
+        ctx.drawTextWithShadow(textRenderer, chipT, ox + W - 84 - textRenderer.getWidth(chipT), oy + 6, chipCol);
+
+        if (tokenField != null) {
+            NeroUi.box(ctx, ox + 6, oy + 23, ox + W - 6, oy + 69, 0xF0261E12, 0xFF6B5320);
+            int y = oy + 27;
+            String warn = "Вставь токен OpenRouter, и NERO заработает как умная нейросеть: будет думать над запросом, проектировать с нуля и принимать файлы. Без токена есть только простой локальный режим по готовым шаблонам.";
+            int n = 0;
+            for (OrderedText l : textRenderer.wrapLines(Text.literal(warn), W - 24)) { if (n++ >= 2) break; ctx.drawTextWithShadow(textRenderer, l, ox + 10, y, NeroUi.WARN); y += 9; }
         }
 
-        int jx = ox + 188;
-        ctx.fill(jx - 2, iy - 2, jx + 186, iy + 74, 0x66000000);
-        List<OrderedText> lines = new ArrayList<>();
-        List<Integer> cols = new ArrayList<>();
-        for (String l : NeroHistory.log()) {
-            int c = l.startsWith("Вы:") ? 0x55FFFF : l.startsWith("NERO") ? 0x55FF55 : (l.startsWith("ОШИБКА") || l.startsWith("Ошибка") || l.startsWith("Постройка отклонена")) ? 0xFF5555 : l.startsWith("Внимание") ? 0xFFAA00 : 0xAAAAAA;
-            for (OrderedText o : textRenderer.wrapLines(Text.literal(l), 180)) { lines.add(o); cols.add(c); }
+        int iy = inputY();
+        chips.clear();
+        boolean hasChips = NeroAttach.any();
+        int chatBottom = iy - 4 - (hasChips ? 14 : 0);
+        int thoughtH = (NeroAI.busy() || chatStreaming) ? 62 : 0;
+
+        ctx.fill(ox + 6, chatTop, ox + W - 6, chatBottom, 0x70000000);
+        int top = chatTop + 3, bottomText = chatBottom - thoughtH - 2;
+        int vis = Math.max(1, (bottomText - top) / 9);
+        int total = rows.size();
+        if (scrollUp > Math.max(0, total - vis)) scrollUp = Math.max(0, total - vis);
+        if (total == 0 && thoughtH == 0) {
+            String[] tip = {"Опиши, что построить, и NERO спроектирует это с нуля, а не из шаблона.",
+                    "• «Построй автоматическую ферму с воротами и пультом»",
+                    "• Прикрепи файл кнопкой «Файл» или перетащи его в окно: текст, код, json, docx, картинка",
+                    "• Режим «Вопрос»: обсудить проект или поменять одну часть",
+                    "• Дальше «Предпросмотр» и «Построить»"};
+            int y = top + 4;
+            for (int i = 0; i < tip.length; i++) { ctx.drawTextWithShadow(textRenderer, textRenderer.trimToWidth(tip[i], W - 24), ox + 12, y, i == 0 ? NeroUi.TEXT : NeroUi.DIM); y += 11; }
+        } else {
+            int start = Math.max(0, total - vis - scrollUp);
+            int y = top;
+            for (int i = start; i < Math.min(total, start + vis); i++) {
+                Object[] r = rows.get(i);
+                ctx.fill(ox + 8, y, ox + 10, y + 9, 0xFF000000 | ((Integer) r[1] & 0xFFFFFF));
+                ctx.drawTextWithShadow(textRenderer, (OrderedText) r[0], ox + 14, y, (Integer) r[1]);
+                y += 9;
+            }
         }
-        int from = Math.max(0, lines.size() - 8);
-        int jy = iy;
-        for (int i = from; i < lines.size(); i++) { ctx.drawTextWithShadow(textRenderer, lines.get(i), jx, jy, cols.get(i)); jy += 9; }
+        if (thoughtH > 0) {
+            int ty = chatBottom - thoughtH;
+            NeroUi.box(ctx, ox + 8, ty, ox + W - 8, chatBottom - 2, NeroUi.PANEL2, NeroUi.LINE);
+            long sec = Math.max(0, (System.currentTimeMillis() - NeroBrain.startedAt) / 1000);
+            String st = (NeroBrain.stage.isEmpty() ? "Думаю" : NeroBrain.stage) + "  " + sec + " с" + (NeroAI.progress > 0 && NeroAI.busy() ? "  ·  чертёж: " + NeroAI.progress + " симв." : "");
+            ctx.drawTextWithShadow(textRenderer, NeroUi.spinner() + " " + textRenderer.trimToWidth(st, W - 40), ox + 14, ty + 4, NeroUi.ACCENT);
+            int from = Math.max(0, thoughtLines.size() - 5);
+            int y = ty + 15;
+            for (int i = from; i < thoughtLines.size(); i++) { ctx.drawTextWithShadow(textRenderer, thoughtLines.get(i), ox + 14, y, chatStreaming ? NeroUi.OK : NeroUi.DIM); y += 9; }
+        }
+        if (scrollUp > 0) ctx.drawTextWithShadow(textRenderer, "↓ новее", ox + W - 50, chatBottom - thoughtH - 11, NeroUi.DIM);
+
+        if (hasChips) {
+            int x = ox + 8, y = iy - 14;
+            List<NeroAttach.Item> it = NeroAttach.items();
+            for (int i = 0; i < it.size(); i++) {
+                String t = textRenderer.trimToWidth(it.get(i).name(), 90) + "  x";
+                int w = textRenderer.getWidth(t) + 8;
+                if (x + w > ox + W - 8) break;
+                NeroUi.box(ctx, x, y, x + w, y + 12, NeroUi.PANEL2, it.get(i).kind().equals("image") ? NeroUi.WARN : NeroUi.ACCENT);
+                ctx.drawTextWithShadow(textRenderer, t, x + 4, y + 2, NeroUi.TEXT);
+                chips.add(new int[]{x, y, x + w, y + 12, i});
+                x += w + 4;
+            }
+        }
+
+        if (more) NeroUi.box(ctx, ox + 5, iy - 41, ox + W - 5, iy - 2, NeroUi.PANEL2, NeroUi.LINE);
 
         if (NeroBuilder.running || NeroBuilder.total > 0) {
-            int bw = 372;
-            ctx.fill(ox, oy + 190, ox + bw, oy + 195, 0xFF333333);
+            int bw = W - 12;
+            ctx.fill(ox + 6, oy + H - 4, ox + 6 + bw, oy + H - 2, 0xFF333333);
             int fw = NeroBuilder.total == 0 ? 0 : (int) ((long) bw * NeroBuilder.done / NeroBuilder.total);
-            ctx.fill(ox, oy + 190, ox + fw, oy + 195, NeroBuilder.paused ? 0xFFFFAA00 : 0xFF00C8E0);
-            ctx.drawTextWithShadow(textRenderer, NeroBuilder.done + "/" + NeroBuilder.total, ox + bw - 60, oy + 197, 0xAAAAAA);
+            ctx.fill(ox + 6, oy + H - 4, ox + 6 + fw, oy + H - 2, NeroBuilder.paused ? 0xFFFFAA00 : 0xFF39D0E0);
         }
+        super.render(ctx, mx, my, d);
     }
 
     @Override

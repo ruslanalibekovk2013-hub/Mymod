@@ -89,7 +89,7 @@ public class NeroHubScreen extends Screen {
         CATS.add(new Cat("Механизмы Rig (старые)", 0xB0B8C8, rg));
         List<Card> tl = new ArrayList<>();
         tl.add(new Card("NERO: главный экран", "запрос, предпросмотр, построить", "NERO", "screen:main"));
-        tl.add(new Card("NERO Chat", "чат с моделью о проекте, правки компонентов", "NERO", "screen:chat"));
+        tl.add(new Card("NERO: вопрос", "спросить о проекте или поменять часть", "NERO", "screen:chat"));
         tl.add(new Card("Мои проекты", "версии, восстановление, экспорт и импорт", "NERO", "screen:projects"));
         tl.add(new Card("3D-редактор", "камера, выбор, перемещение, поворот", "NERO", "screen:editor"));
         tl.add(new Card("Командные блоки проекта", "список, подписи, связи", "NERO", "screen:cb"));
@@ -228,7 +228,7 @@ public class NeroHubScreen extends Screen {
         if (a.startsWith("rig:")) { mc.setScreen(new RigScreen(a.substring(4))); return; }
         switch (a.substring(7)) {
             case "main" -> mc.setScreen(new NeroScreen());
-            case "chat" -> mc.setScreen(new NeroChatScreen());
+            case "chat" -> mc.setScreen(NeroScreen.chat());
             case "projects" -> mc.setScreen(new NeroProjectsScreen());
             case "editor" -> mc.setScreen(new NeroEditorScreen());
             case "cb" -> { if (NeroScreen.plan() == null && NeroAI.project != null) NeroScreen.replan(false); if (NeroScreen.plan() != null) mc.setScreen(new NeroCbScreen(NeroScreen.plan(), NeroScreen.report())); else mc.setScreen(new NeroScreen()); }

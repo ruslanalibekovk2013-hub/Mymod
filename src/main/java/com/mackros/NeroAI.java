@@ -45,6 +45,7 @@ public final class NeroAI {
         busy = false;
         HttpProvider.cancelCurrent();
         NeroChatClient.cancel();
+        NeroBrain.finish();
         NeroHistory.log("Запрос отменён");
     }
 
@@ -160,8 +161,10 @@ public final class NeroAI {
         final int myGen = ++gen;
         final long t0 = System.nanoTime();
         MinecraftClient mc = MinecraftClient.getInstance();
-        if (main != LOCAL) NeroHistory.log("Запрос к модели отправлен (отмена: кнопка «Отмена» или команда «отмена»)");
+        if (main != LOCAL) { NeroBrain.reset("Отправляю запрос модели"); NeroHistory.log("Запрос отправлен модели. Можно остановить кнопкой «Стоп»."); }
+        else if (NeroAttach.any()) NeroHistory.log("Файлы видит только подключённая модель: вставь токен OpenRouter. Локальный режим их не читает.");
         main.process(req).whenComplete((resp, ex) -> mc.execute(() -> {
+            NeroBrain.finish();
             if (myGen != gen) return;
             NeroPerf.put(main == LOCAL ? "Локальный разбор запроса" : "Запрос к ИИ (всего)", (System.nanoTime() - t0) / 1_000_000L);
             NeroResponse r = resp;

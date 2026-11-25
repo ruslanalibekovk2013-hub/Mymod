@@ -16,6 +16,9 @@ public final class NeroConfig {
     public static long lastStatusAt = 0;
     /** Резерв: если модель недоступна, явно разрешить локальный режим. */
     public static boolean fallbackLocal = false;
+    /** Глубокое мышление: сначала план, потом чертёж. quality: 0 = бесплатные модели (авто), 1 = лучшие доступные (платные, нужен баланс OpenRouter). */
+    public static boolean deepThink = true;
+    public static int quality = 0;
     public static final int MAX_OPS = 40000;
 
     private static Path file() { return FabricLoader.getInstance().getConfigDir().resolve("mackros_nero.properties"); }
@@ -47,6 +50,8 @@ public final class NeroConfig {
             lastStatus = p.getProperty("lastStatus", "не проверялось");
             lastStatusAt = (long) geti(p, "lastStatusAt", 0) * 1000L;
             fallbackLocal = "1".equals(p.getProperty("fallbackLocal", "0"));
+            deepThink = !"0".equals(p.getProperty("deepThink", "1"));
+            quality = geti(p, "quality", 0) == 1 ? 1 : 0;
         } catch (Exception ignored) { }
     }
 
@@ -67,6 +72,8 @@ public final class NeroConfig {
             p.setProperty("lastStatus", lastStatus);
             p.setProperty("lastStatusAt", String.valueOf(lastStatusAt / 1000L));
             p.setProperty("fallbackLocal", fallbackLocal ? "1" : "0");
+            p.setProperty("deepThink", deepThink ? "1" : "0");
+            p.setProperty("quality", String.valueOf(quality));
             try (var out = Files.newOutputStream(file())) { p.store(out, "Mackros NERO AI (ключ хранится локально, не публикуй этот файл)"); }
         } catch (Exception ignored) { }
     }
@@ -75,7 +82,7 @@ public final class NeroConfig {
 
     public static String modelInfo() {
         String m = model.equalsIgnoreCase("auto") || model.isEmpty() ? (lockedModel.isEmpty() ? "auto (ещё не выбрана)" : lockedModel + " (выбрана автоматически и закреплена)") : model + " (задана вручную)";
-        return "Провайдер: " + providerId + "; модель: " + m + "; статус: " + lastStatus + "; резерв локальный: " + (fallbackLocal ? "вкл" : "выкл");
+        return "Модель: " + m + "; режим: " + (quality == 1 ? "лучшие" : "бесплатные") + "; мышление: " + (deepThink ? "вкл" : "выкл") + "; статус: " + lastStatus;
     }
 
     public static boolean isOpenRouter() { return url.contains("openrouter.ai"); }

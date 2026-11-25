@@ -123,7 +123,7 @@ public class NeroEditorScreen extends Screen {
         addDrawableChild(ButtonWidget.builder(Text.literal("Повтор"), b -> { status = NeroAI.doUndo(false); reload(); }).dimensions(62, y2, 56, 18).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Камера"), b -> { yaw = 0.8; pitch = 0.55; panX = panY = 0; load(); }).dimensions(120, y2, 56, 18).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("К построению"), b -> MinecraftClient.getInstance().setScreen(new NeroScreen())).dimensions(178, y2, 84, 18).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Чат"), b -> MinecraftClient.getInstance().setScreen(new NeroChatScreen())).dimensions(264, y2, 40, 18).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("Чат"), b -> MinecraftClient.getInstance().setScreen(NeroScreen.chat())).dimensions(264, y2, 40, 18).build());
         cmdField = new TextFieldWidget(textRenderer, width - 182, height - 68, 178, 16, Text.literal("команда"));
         cmdField.setMaxLength(2000);
         cmdField.setVisible(false);

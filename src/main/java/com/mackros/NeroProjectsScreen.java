@@ -56,7 +56,7 @@ public class NeroProjectsScreen extends Screen {
             btn("OK", ox + 304, oy + 168, 68, () -> { NeroProjects.rename(sel, nameField.getText()); renaming = false; note = "Переименовано"; init(); });
         }
         btn("Назад", ox + 296, oy + 188, 76, () -> MinecraftClient.getInstance().setScreen(new NeroScreen()));
-        btn("Чат", ox + 216, oy + 188, 76, () -> MinecraftClient.getInstance().setScreen(new NeroChatScreen()));
+        btn("Чат", ox + 216, oy + 188, 76, () -> MinecraftClient.getInstance().setScreen(NeroScreen.chat()));
     }
 
     private void btn(String label, int x, int y, int w, Runnable r) {

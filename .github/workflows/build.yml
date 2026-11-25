@@ -12,7 +12,13 @@ jobs:
       - uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: 8.8
-      - run: gradle build --no-daemon
+      - name: Build (повтор при 429 от Maven)
+        run: |
+          for i in 1 2 3 4; do
+            gradle build --no-daemon && exit 0
+            echo "Retry $i"; sleep 60
+          done
+          exit 1
       - uses: actions/upload-artifact@v4
         with:
           name: Mackros-jar

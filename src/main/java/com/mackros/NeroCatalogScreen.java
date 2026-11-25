@@ -59,7 +59,7 @@ public class NeroCatalogScreen extends Screen {
         cats.add(new Cat("Постройки", bld));
         List<Item> tools = new ArrayList<>();
         tools.add(it("Главный экран NERO", "поле запроса, предпросмотр, построить", "@main"));
-        tools.add(it("NERO Chat", "чат с моделью о проекте, правки компонентов", "@chat"));
+        tools.add(it("NERO: вопрос", "спросить о проекте или поменять часть", "@chat"));
         tools.add(it("Мои проекты", "версии, восстановление, экспорт и импорт", "@projects"));
         tools.add(it("3D-редактор", "камера, выбор, перемещение, поворот, режимы", "@editor"));
         tools.add(it("Командные блоки", "список, подписи, связи", "@cb"));
@@ -95,7 +95,7 @@ public class NeroCatalogScreen extends Screen {
         MinecraftClient mc = MinecraftClient.getInstance();
         switch (item.request()) {
             case "@main" -> mc.setScreen(new NeroScreen());
-            case "@chat" -> mc.setScreen(new NeroChatScreen());
+            case "@chat" -> mc.setScreen(NeroScreen.chat());
             case "@projects" -> mc.setScreen(new NeroProjectsScreen());
             case "@editor" -> mc.setScreen(new NeroEditorScreen());
             case "@cb" -> {

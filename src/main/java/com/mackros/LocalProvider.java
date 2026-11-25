@@ -228,7 +228,7 @@ public final class LocalProvider implements AIProvider {
         if (!wants && !nextCustom) return null;
         NeroSpec s;
         if (nextCustom && cur.bp != null && NeroConfig.remoteReady())
-            return new NeroResponse(true, null, "Этот проект собран по чертежу: правь его в NERO Chat (кнопка «Чат»), тогда изменится только нужный компонент, а остальное сохранится. Чтобы создать новый проект, начни запрос со слова «Создай».", null, null, "Локальный");
+            return new NeroResponse(true, null, "Этот проект собран по чертежу: правь его в режиме «Вопрос» окна NERO, тогда изменится только нужный компонент, а остальное сохранится. Чтобы создать новый проект, начни запрос со слова «Создай».", null, null, "Локальный");
         if (nextCustom) {
             s = cur.copy();
             s.desc = s.desc + " " + t;

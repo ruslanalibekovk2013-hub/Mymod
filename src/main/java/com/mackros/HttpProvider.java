@@ -60,6 +60,7 @@ public final class HttpProvider implements AIProvider {
                 + NeroLibrary.promptSection(request) + NeroModels.promptSection(request);
     }
 
+    private String plan = "";
     private static volatile CompletableFuture<?> current = null;
     private static final java.util.LinkedHashMap<String, NeroResponse> CACHE = new java.util.LinkedHashMap<>(16, 0.75f, true) {
         @Override protected boolean removeEldestEntry(java.util.Map.Entry<String, NeroResponse> e) { return size() > 16; }
@@ -78,14 +79,21 @@ public final class HttpProvider implements AIProvider {
     @Override
     public CompletableFuture<NeroResponse> process(NeroRequest r) {
         try {
-            String key = r.text + "|" + (r.current != null ? r.current.toJson().toString().hashCode() : 0) + "|" + NeroConfig.lockedModel + NeroConfig.model;
+            String key = r.text + "|" + (r.current != null ? r.current.toJson().toString().hashCode() : 0) + "|" + NeroConfig.lockedModel + NeroConfig.model + "|" + NeroAttach.fingerprint() + NeroConfig.quality + NeroConfig.deepThink;
             NeroResponse hit;
             synchronized (CACHE) { hit = CACHE.get(key); }
             if (hit != null) {
                 NeroPerf.put("ИИ: ответ из кэша", 0);
                 return CompletableFuture.completedFuture(new NeroResponse(true, hit.spec == null ? null : hit.spec.copy(), hit.reply, hit.pending, null, N + " (кэш)"));
             }
-            return OpenRouter.candidates(CLIENT).thenCompose(ms -> attempt(r, ms, 0, null, 0)).thenApply(res -> {
+            NeroChatClient.clearCancel();
+            return NeroBrain.plan(r.text, r.current, r.history).thenCompose(pl -> {
+                if (NeroChatClient.cancelledFlag()) return done(NeroResponse.fail("запрос отменён", N));
+                plan = pl == null ? "" : pl;
+                if (!plan.isBlank()) NeroHistory.log("План NERO: " + (plan.length() > 900 ? plan.substring(0, 899) + "…" : plan).replace("\n", " "));
+                NeroBrain.stage("Проектирую чертёж");
+                return OpenRouter.candidates(CLIENT, NeroAttach.hasImages()).thenCompose(ms -> attempt(r, ms, 0, null, 0));
+            }).thenApply(res -> {
                 if (res.ok && res.pending == null && res.spec != null) synchronized (CACHE) { CACHE.put(key, res); }
                 return res;
             });
@@ -103,6 +111,7 @@ public final class HttpProvider implements AIProvider {
         }
         final String m = ms.get(i);
         NeroHistory.log("ИИ: пробую модель " + m);
+        NeroBrain.stage("Проектирую чертёж · " + m);
         return call(m, r, null).thenCompose(a -> {
             if (!a.ok) {
                 if (retryable(a.error) && tries < 1) {
@@ -114,6 +123,7 @@ public final class HttpProvider implements AIProvider {
             List<String> errs = check(a.spec);
             if (errs.isEmpty()) { OpenRouter.markGood(m); return done(a); }
             NeroHistory.log("ИИ: в чертеже ошибки (" + errs.size() + "), прошу исправить");
+            NeroBrain.stage("Исправляю ошибки чертежа");
             return call(m, r, errs).thenCompose(b -> {
                 if (b.ok && check(b.spec).isEmpty()) { OpenRouter.markGood(m); return done(b); }
                 return attempt(r, ms, i + 1, "чертёж с ошибками: " + errs.get(0), 0);
@@ -151,7 +161,16 @@ public final class HttpProvider implements AIProvider {
             String ctx = r.current == null ? "" : "\nCurrent project: " + r.current.toJson();
             String pend = r.pending == null ? "" : "\n(The player is answering your previous clarifying question.)";
             String fix = errs == null ? "" : "\nYour previous blueprint failed validation with these errors, return the corrected full JSON:\n- " + String.join("\n- ", errs);
-            usr.addProperty("content", r.text + ctx + pend + fix);
+            String hist = "";
+            if (r.history != null && r.history.size() > 1) {
+                StringBuilder hb = new StringBuilder("\nEarlier player requests in this session (context only): ");
+                for (int i = Math.max(0, r.history.size() - 4); i < r.history.size() - 1; i++) hb.append(r.history.get(i).length() > 200 ? r.history.get(i).substring(0, 200) : r.history.get(i)).append(" | ");
+                hist = hb.toString();
+            }
+            String planTxt = plan.isBlank() ? "" : "\nYOUR OWN DESIGN PLAN for this request (implement EVERY point of it; do not simplify it into a template):\n" + plan;
+            String full = r.text + ctx + pend + hist + planTxt + NeroAttach.textBlock() + fix;
+            JsonArray withImg = NeroAttach.userContent(full);
+            if (withImg != null) usr.add("content", withImg); else usr.addProperty("content", full);
             msgs.add(usr);
             body.add("messages", msgs);
 
@@ -177,6 +196,7 @@ public final class HttpProvider implements AIProvider {
                                     JsonArray ch = o.getAsJsonArray("choices");
                                     if (ch == null || ch.size() == 0) return;
                                     JsonObject delta = ch.get(0).getAsJsonObject().getAsJsonObject("delta");
+                                    if (delta != null && delta.has("reasoning") && delta.get("reasoning").isJsonPrimitive()) NeroBrain.think(delta.get("reasoning").getAsString());
                                     if (delta != null && delta.has("content") && !delta.get("content").isJsonNull()) { sb.append(delta.get("content").getAsString()); NeroAI.progress = sb.length(); }
                                 } catch (Exception ignored) { }
                                 if (sb.length() > NeroConfig.maxResponse) throw new RuntimeException("big");

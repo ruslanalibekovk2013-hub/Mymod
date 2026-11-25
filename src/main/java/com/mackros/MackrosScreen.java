@@ -395,8 +395,7 @@ public class MackrosScreen extends Screen {
             }
             case 26 -> {
                 add(l, "Открыть NERO AI", "Пиши обычным языком, что построить: дом, лифт, секретную комнату... (клавиша F9)", () -> MinecraftClient.getInstance().setScreen(new NeroScreen()));
-                add(l, "Настройки NERO AI", "Подключение внешней нейросети: URL, ключ, модель, тайм-аут", () -> MinecraftClient.getInstance().setScreen(new NeroSettingsScreen()));
-                add(l, "NERO: пример лифта", "Построй лифт на 10 этажей", () -> MinecraftClient.getInstance().setScreen(new NeroScreen()));
+                add(l, "Настройки NERO AI", "Вставь токен OpenRouter, и NERO начнёт думать по-настоящему", () -> MinecraftClient.getInstance().setScreen(new NeroSettingsScreen()));
             }
             default -> {
                 keep(l, "Ось: " + (Config.relMove ? "по взгляду" : "по миру"), "Направления в меню переноса", () -> { Config.relMove = !Config.relMove; Config.save(); });

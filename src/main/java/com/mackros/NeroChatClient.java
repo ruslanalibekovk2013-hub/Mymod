@@ -23,6 +23,10 @@ public final class NeroChatClient {
     private static volatile CompletableFuture<?> current = null;
     private static volatile boolean cancelled = false;
 
+    public static boolean cancelledFlag() { return cancelled; }
+
+    public static void clearCancel() { cancelled = false; }
+
     public static void cancel() {
         cancelled = true;
         CompletableFuture<?> c = current;
@@ -30,9 +34,11 @@ public final class NeroChatClient {
     }
 
     /** @param onDelta вызывается (в потоке сети) для каждого фрагмента ответа; @param onDone ошибка или null при успехе */
-    public static void stream(JsonArray messages, Consumer<String> onDelta, Consumer<String> onDone) {
+    public static void stream(JsonArray messages, Consumer<String> onDelta, Consumer<String> onDone) { stream(messages, false, onDelta, onDone); }
+
+    public static void stream(JsonArray messages, boolean vision, Consumer<String> onDelta, Consumer<String> onDone) {
         cancelled = false;
-        CompletableFuture<?> f = OpenRouter.candidates(CLIENT).thenCompose(ms -> attempt(ms, 0, messages, onDelta, 0))
+        CompletableFuture<?> f = OpenRouter.candidates(CLIENT, vision).thenCompose(ms -> attempt(ms, 0, messages, onDelta, 0))
                 .whenComplete((err, ex) -> {
                     if (cancelled) { onDone.accept("запрос отменён"); return; }
                     if (ex != null) { onDone.accept("сеть: " + (ex.getCause() != null ? ex.getCause().getClass().getSimpleName() : ex.getClass().getSimpleName())); return; }
@@ -105,6 +111,7 @@ public final class NeroChatClient {
                             JsonArray ch = o.getAsJsonArray("choices");
                             if (ch == null || ch.size() == 0) return;
                             JsonObject delta = ch.get(0).getAsJsonObject().getAsJsonObject("delta");
+                            if (delta != null && delta.has("reasoning") && delta.get("reasoning").isJsonPrimitive()) NeroBrain.think(delta.get("reasoning").getAsString());
                             if (delta != null && delta.has("content") && !delta.get("content").isJsonNull()) onDelta.accept(delta.get("content").getAsString());
                         } catch (Exception ignored) { }
                     });
