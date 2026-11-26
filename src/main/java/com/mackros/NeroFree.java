@@ -430,7 +430,7 @@ public final class NeroFree {
                     blk(pl, bay, x, by + 2, z, Blocks.AIR, 0);
                 }
             pl.setup.add("summon minecraft:text_display " + fd(x1 + 1.5) + " " + fd(by + 1.6) + " " + fd(z1 + 0.5)
-                    + " {text:'{\"text\":\"КОМАНДНЫЕ БЛОКИ: не ломать\",\"color\":\"red\"}',billboard:\"center\",Tags:[\"" + tag + "\"]}");
+                    + " {text:'{\"text\":\"КОМАНДНЫЕ БЛОКИ: не ломать\",\"color\":\"red\"}',billboard:\"center\",transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],translation:[0f,0f,0f],scale:[0.5f,0.5f,0.5f]},Tags:[\"" + tag + "\"]}");
         }
 
         // 2. пульт управления
@@ -501,7 +501,7 @@ public final class NeroFree {
                 }
         for (int x = Xw - 3; x < Xw; x++)
             for (int z = zs - 1; z <= zs + 2 * cols - 1; z++) { blk(pl, pe, x, by - 1, z, Blocks.SMOOTH_STONE, 1); for (int y = by; y <= top + 1; y++) blk(pl, pe, x, y, z, Blocks.AIR, 0); }
-        pl.setup.add("summon minecraft:text_display " + fd(Xw - 0.9) + " " + fd(top + 1.6) + " " + fd(zs + cols) + " {text:'{\"text\":\"ПУЛЬТ УПРАВЛЕНИЯ\",\"color\":\"gold\"}',billboard:\"center\",Tags:[\"" + tag + "\"]}");
+        pl.setup.add("summon minecraft:text_display " + fd(Xw - 0.9) + " " + fd(top + 1.6) + " " + fd(zs + cols) + " {text:'{\"text\":\"ПУЛЬТ УПРАВЛЕНИЯ\",\"color\":\"gold\"}',billboard:\"center\",transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],translation:[0f,0f,0f],scale:[0.5f,0.5f,0.5f]},Tags:[\"" + tag + "\"]}");
         for (int i = 0; i < N; i++) {
             int col = i % 8, row = i / 8, z = zs + 2 * col, y = by + 1 + 3 * row;
             String[] cc = ctl.get(i);
@@ -517,7 +517,7 @@ public final class NeroFree {
                     "Сообщение: «" + label + "»", "Показывает в чате, что кнопка «" + label + "» нажата."));
             pl.blocks.add(new NeroBuildPlan.Block(Xw - 1, y, z, Blocks.STONE_BUTTON.getDefaultState().with(WallMountedBlock.FACING, Direction.WEST), pe, 2));
             pl.setup.add("summon minecraft:text_display " + fd(Xw - 0.9) + " " + fd(y + 1.0) + " " + fd(z + 0.5)
-                    + " {text:'{\"text\":\"" + label + "\",\"color\":\"aqua\"}',billboard:\"center\",Tags:[\"" + tag + "\"]}");
+                    + " {text:'{\"text\":\"" + label + "\",\"color\":\"aqua\"}',billboard:\"center\",transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],translation:[0f,0f,0f],scale:[0.5f,0.5f,0.5f]},Tags:[\"" + tag + "\"]}");
         }
         pl.help.add("Пульт управления: стена с кнопками слева от постройки, командный отсек позади неё.");
         NeroLabels.apply(pl);

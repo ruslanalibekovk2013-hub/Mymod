@@ -69,7 +69,7 @@ final class NeroMachines {
             NeroKit.console(b, 6);
             b.setup("scoreboard objectives add " + L + " dummy", "scoreboard players set #run " + L + " 0", "scoreboard players set #t " + L + " 0",
                     "scoreboard players set #fast " + L + " 0", "scoreboard players set #clr " + L + " 0",
-                    "summon minecraft:text_display {x+7} {y+5} {z+0} {text:'{\"text\":\"Готов к работе\",\"color\":\"green\"}',billboard:\"center\",Tags:[\"{tag}\",\"st_{id}\"]}");
+                    "summon minecraft:text_display {x+7} {y+5} {z+0} {text:'{\"text\":\"Готов к работе\",\"color\":\"green\"}',billboard:\"center\",transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],translation:[0f,0f,0f],scale:[0.5f,0.5f,0.5f]},Tags:[\"{tag}\",\"st_{id}\"]}");
             for (int i = 0; i < signs.length; i++) b.setup(NeroKit.sign(1 + 2 * i, 0, -1, signs[i][0], signs[i][1], signs[i][2], signs[i][3]));
             NeroKit.board(b, 7, 8, 0, board);
             String S = "scoreboard players set ";

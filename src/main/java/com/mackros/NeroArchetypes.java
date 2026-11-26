@@ -12,6 +12,8 @@ import java.util.regex.Pattern;
  */
 final class NeroArchetypes {
     static String detect(String t) {
+        String ak0 = NeroArsenal.detect(t);
+        if (ak0 != null) return ak0;
         String mk = NeroMachines.detect(t);
         if (mk != null) return mk;
         String xk = NeroMega.detect(t);
@@ -35,6 +37,7 @@ final class NeroArchetypes {
     static String nameOf(String k) {
         if (k.startsWith("x_")) return NeroMega.name(k);
         if (k.startsWith("m_")) return NeroMachines.name(k);
+        if (k.startsWith("wr_")) return NeroArsenal.name(k);
         if (k.startsWith("w_")) return NeroWeapons.name(k);
         return switch (k) { case "lift" -> "лифт"; case "portalgun" -> "портальная пушка"; case "printer" -> "3D-принтер"; case "ship" -> "корабль"; case "robot" -> "робот"; case "bridge" -> "мост"; case "train" -> "поезд"; case "computer" -> "компьютер"; case "portal" -> "портал"; default -> k; };
     }
@@ -42,6 +45,7 @@ final class NeroArchetypes {
     static String works(String k) {
         if (k.startsWith("x_")) return NeroMega.works(k);
         if (k.startsWith("m_")) return NeroMachines.works(k);
+        if (k.startsWith("wr_")) return NeroArsenal.works(k);
         if (k.startsWith("w_")) return NeroWeapons.works(k);
         return switch (k) {
             case "lift" -> "кабина (модель из display-сущностей) плавно ездит между этажами, стеклянные двери этажей открываются и закрываются, вызов кнопками на этажах и на пульте, очередь вызовов, табло этажа и индикатор. Кабина сама не твёрдая: игрока везёт команда. Кнопки внутри кабины сделаны как оформление, этаж выбирается кнопками на этажах или пульте";
@@ -63,6 +67,7 @@ final class NeroArchetypes {
     static JsonObject bp(String key, String t) {
         if (key.startsWith("x_")) return NeroMega.bp(key, t);
         if (key.startsWith("m_")) return NeroMachines.bp(key, t);
+        if (key.startsWith("wr_")) return NeroArsenal.bp(key, t);
         if (key.startsWith("w_")) return NeroWeapons.bp(key, t);
         B b = new B();
         switch (key) {

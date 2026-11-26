@@ -38,10 +38,12 @@ public final class NeroSelfTest {
         out.add("== Определение запросов каталога ==");
         for (NeroMega.V v : NeroMega.ALL) { String got = NeroArchetypes.detect(LocalProvider.norm("Создай " + v.name())); check(out, v.name(), v.key().equals(got), got); }
         for (NeroWeapons.W w : NeroWeapons.ALL) { String got = NeroArchetypes.detect(LocalProvider.norm("Создай " + w.name())); check(out, w.name(), w.key().equals(got), got); }
+        for (NeroArsenal.WR w : NeroArsenal.ALL) { String got = NeroArchetypes.detect(LocalProvider.norm("Создай " + w.name())); check(out, w.name(), w.key().equals(got), got); }
         out.add("== Сборка и проверка механизмов ==");
         List<String> keys = new ArrayList<>();
         for (NeroMega.V v : NeroMega.ALL) keys.add(v.key());
         for (NeroWeapons.W w : NeroWeapons.ALL) keys.add(w.key());
+        for (NeroArsenal.WR w : NeroArsenal.ALL) keys.add(w.key());
         for (String k : new String[]{"m_tower", "m_bridge", "m_house", "m_fort", "m_pyramid", "printer", "portalgun", "lift"}) keys.add(k);
         int min = Integer.MAX_VALUE, max = 0;
         for (String k : keys) {
