@@ -51,7 +51,7 @@ public class ElevatorScreen extends Screen {
             int bx = gx + col * (CELL + GAP), by = gy + row * (CELL + GAP);
 
             String label = (cur ? ">" : "") + (idx + 1);
-            ButtonWidget.NarrationSupplier narration = b -> Text.translatable("narration.button", b.getMessage());
+            ButtonWidget.NarrationSupplier narration = java.util.function.Supplier::get;
             ButtonWidget bw = new ButtonWidget(bx, by, CELL, CELL, Text.literal(label), b -> {
                 ElevatorClient.send(pos, fy);
                 close();
