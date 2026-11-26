@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "mackros:block/light_lime_top_on",
+    "bottom": "mackros:block/light_lime_side",
+    "side": "mackros:block/light_lime_side"
+  }
+}

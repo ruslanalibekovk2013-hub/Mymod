@@ -114,7 +114,8 @@ final class NeroArsenal {
 
         List<String[]> s = new ArrayList<>();
         s.add(new String[]{"Перезарядка: отсчёт", "scoreboard players remove @a[scores={" + C + "=1..}] " + C + " 1", "Уменьшает время перезарядки"});
-        s.add(new String[]{"Выстрел: кто стрелял", "execute if score #on " + D + " matches 1 run tag @a[scores={" + U + "=1..," + C + "=0},nbt={SelectedItem:{tag:{mkw:\"" + key + "\"}}}] add mkf",
+        s.add(new String[]{"Выстрел: кто стрелял",
+                "execute if score #on " + D + " matches 1 as @a[scores={" + U + "=1..," + C + "=0}] at @s if items entity @s weapon.mainhand minecraft:carrot_on_a_stick{mkw:\"" + key + "\"} run tag @s add mkf",
                 "Метит игрока, у которого в руке это оружие и который нажал ПКМ"});
         s.add(new String[]{"Перезарядка: старт", S + "@a[tag=mkf] " + C + " " + w.cd(), "Запускает перезарядку"});
         s.add(new String[]{"Сброс счётчика ПКМ", S + "@a[scores={" + U + "=1..}] " + U + " 0", "Готовит следующий выстрел"});

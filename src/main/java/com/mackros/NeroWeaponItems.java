@@ -34,8 +34,10 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 15 игровых «оружий-предметов»: держишь в руке и стреляешь правой кнопкой, как удочкой (модель item/handheld_rod).
- * Это вымышленные игровые устройства: урон наносится только враждебным мобам (Monster), игроки, животные и жители не страдают, блоки не разрушаются.
+ * 27 игровых «оружий-предметов»: держишь в руке и стреляешь правой кнопкой, как удочкой (модель item/handheld_rod).
+ * Весь «мозг» оружия — этот один Java-класс: один switch на все виды, один tick() на все отложенные эффекты.
+ * Никаких командных блоков — поэтому не ломается и не зависит от чанклоада/игровых правил.
+ * Это вымышленные игровые устройства: урон наносится только враждебным мобам (Monster), игроки, животные и жители не страдают, блоки не разрушаются (кроме декоративной паутины).
  */
 public final class NeroWeaponItems {
     public record WI(String id, String name, int cd, String how) { }
@@ -55,7 +57,19 @@ public final class NeroWeaponItems {
             new WI("w_mine_layer", "Миноукладчик", 30, "кладёт мину: взрывается под врагом"),
             new WI("w_shield_orb", "Щит-генератор", 200, "10 секунд отталкивает врагов вокруг тебя"),
             new WI("w_orbital_beacon", "Орбитальный маяк", 160, "захват цели, через 3 секунды удар с неба (30 урона)"),
-            new WI("w_sniper_rifle", "Снайперская винтовка", 40, "один сильный выстрел (30 урона, дальность 80)")};
+            new WI("w_sniper_rifle", "Снайперская винтовка", 40, "один сильный выстрел (30 урона, дальность 80)"),
+            new WI("w_vampire_claw", "Вампирский коготь", 10, "удар вблизи (7 урона), лечит тебя на часть урона"),
+            new WI("w_poison_dart", "Дротикомёт", 16, "отравляет первого врага на 8 секунд"),
+            new WI("w_homing_missile", "Самонаводка", 45, "ракета сама летит к ближайшему врагу (16 урона)"),
+            new WI("w_chain_lightning", "Цепная молния", 22, "бьёт цель и ещё двух врагов рядом с ней"),
+            new WI("w_blink_rod", "Жезл рывка", 30, "телепортирует тебя на 8 блоков вперёд"),
+            new WI("w_meteor_wand", "Метеоритный жезл", 90, "через 1.5 сек метеор падает в точку прицела (18 урона)"),
+            new WI("w_web_gun", "Паутинная пушка", 40, "опутывает первого врага паутиной"),
+            new WI("w_sonic_blaster", "Соник-бластер", 30, "звуковой удар пробивает всех на линии (10 урона)"),
+            new WI("w_void_rod", "Жезл пустоты", 22, "иссушение и слепота первому врагу"),
+            new WI("w_heal_beacon", "Целительный маяк", 140, "лечит и даёт поглощение тебе"),
+            new WI("w_haste_injector", "Боевой стимулятор", 400, "скорость, сила и защита на 12 секунд"),
+            new WI("w_smoke_bomb", "Дымовая шашка", 80, "облако дыма: враги слепнут и замедляются")};
 
     private record Strike(ServerWorld w, UUID owner, UUID target, int ticks, double dmg, boolean beam) { }
 
@@ -63,14 +77,22 @@ public final class NeroWeaponItems {
 
     private record Shield(ServerWorld w, UUID owner, int ticks) { }
 
+    /** Самонаводящаяся ракета: летит к живой цели, взрывается при сближении или по истечении жизни. */
+    private record Missile(ServerWorld w, UUID target, double x, double y, double z, int life, double dmg) { }
+
+    /** Метеор: падает в фиксированную точку мира (без сущностей-меток, просто координата + обратный отсчёт). */
+    private record Meteor(ServerWorld w, Vec3d point, int ticks, double dmg) { }
+
     private static final List<Strike> STRIKES = new ArrayList<>();
     private static final List<Mine> MINES = new ArrayList<>();
     private static final List<Shield> SHIELDS = new ArrayList<>();
+    private static final List<Missile> MISSILES = new ArrayList<>();
+    private static final List<Meteor> METEORS = new ArrayList<>();
 
     public static void init() {
         for (WI w : ALL) Registry.register(Registries.ITEM, new Identifier(MackrosMod.ID, w.id()), new WeaponItem(w, new Item.Settings().maxCount(1)));
         ServerTickEvents.END_SERVER_TICK.register(s -> tick());
-        ServerLifecycleEvents.SERVER_STOPPED.register(s -> { STRIKES.clear(); MINES.clear(); SHIELDS.clear(); });
+        ServerLifecycleEvents.SERVER_STOPPED.register(s -> { STRIKES.clear(); MINES.clear(); SHIELDS.clear(); MISSILES.clear(); METEORS.clear(); });
     }
 
     public static Item item(String id) { return Registries.ITEM.get(new Identifier(MackrosMod.ID, id)); }
@@ -238,6 +260,118 @@ public final class NeroWeaponItems {
                     snd(w, pl.getPos(), SoundEvents.BLOCK_BEACON_ACTIVATE, 1f, 1.4f);
                     return "щит включён на 10 секунд";
                 }
+                case "w_vampire_claw" -> {
+                    snd(w, eye, SoundEvents.ENTITY_PLAYER_ATTACK_SWEEP, 1.2f, 1.3f);
+                    List<LivingEntity> h = foesAround(w, eye.add(dir.multiply(2.5)), 2.8);
+                    double healed = 0;
+                    for (LivingEntity e : h) {
+                        Vec3d to = e.getPos().subtract(eye);
+                        if (to.length() > 5 || to.normalize().dotProduct(dir) < 0.3) continue;
+                        hurt(w, e, 7, 0);
+                        part(w, ParticleTypes.DAMAGE_INDICATOR, e.getPos().add(0, 1, 0), 6, 0.2, 0.05);
+                        healed += 2.5;
+                    }
+                    if (healed > 0) { pl.heal((float) healed); part(w, ParticleTypes.HEART, pl.getPos().add(0, 1.5, 0), 4, 0.3, 0.02); }
+                    return healed > 0 ? "высосано: " + (int) healed : "мимо";
+                }
+                case "w_poison_dart" -> {
+                    snd(w, eye, SoundEvents.ENTITY_ARROW_SHOOT, 1.0f, 1.4f);
+                    List<LivingEntity> h = ray(w, eye, dir, 24, ParticleTypes.SNEEZE, false);
+                    for (LivingEntity e : h) { e.addStatusEffect(new StatusEffectInstance(StatusEffects.POISON, 160, 0)); hurt(w, e, 2, 0); }
+                    return h.isEmpty() ? "мимо" : "отравлен";
+                }
+                case "w_homing_missile" -> {
+                    List<LivingEntity> t = foesAround(w, pl.getPos(), 30);
+                    if (t.isEmpty()) return "целей нет";
+                    snd(w, eye, SoundEvents.ENTITY_FIREWORK_ROCKET_LAUNCH, 1.3f, 1.0f);
+                    Vec3d start = eye.add(dir.multiply(1.2));
+                    MISSILES.add(new Missile(w, t.get(0).getUuid(), start.x, start.y, start.z, 80, 16));
+                    return "ракета запущена";
+                }
+                case "w_chain_lightning" -> {
+                    snd(w, eye, SoundEvents.ENTITY_LIGHTNING_BOLT_THUNDER, 0.8f, 1.6f);
+                    List<LivingEntity> h = ray(w, eye, dir, 26, ParticleTypes.ELECTRIC_SPARK, false);
+                    if (h.isEmpty()) return "мимо";
+                    LivingEntity first = h.get(0);
+                    hurt(w, first, 9, 2);
+                    int n = 1;
+                    for (LivingEntity e : foesAround(w, first.getPos(), 6)) {
+                        if (e == first || n >= 3) continue;
+                        for (int i = 0; i <= 8; i++) part(w, ParticleTypes.ELECTRIC_SPARK, first.getPos().add(0, 1, 0).lerp(e.getPos().add(0, 1, 0), i / 8.0), 1, 0.1, 0.05);
+                        hurt(w, e, 6, 2);
+                        n++;
+                    }
+                    return "ударов: " + n;
+                }
+                case "w_blink_rod" -> {
+                    Vec3d target = eye;
+                    for (double d = 1.0; d <= 8; d += 0.5) { Vec3d p = eye.add(dir.multiply(d)); if (solid(w, p)) break; target = p; }
+                    part(w, ParticleTypes.PORTAL, pl.getPos().add(0, 1, 0), 20, 0.3, 0.3);
+                    if (pl instanceof net.minecraft.server.network.ServerPlayerEntity sp) sp.teleport(w, target.x, target.y, target.z, pl.getYaw(), pl.getPitch());
+                    snd(w, target, SoundEvents.ENTITY_ENDERMAN_TELEPORT, 1f, 1f);
+                    part(w, ParticleTypes.PORTAL, target, 20, 0.3, 0.3);
+                    return null;
+                }
+                case "w_meteor_wand" -> {
+                    Vec3d p = aimPoint(w, eye, dir, 34);
+                    METEORS.add(new Meteor(w, p, 30, 18));
+                    snd(w, p, SoundEvents.ENTITY_GHAST_WARN, 1.3f, 0.6f);
+                    return "метеор вызван";
+                }
+                case "w_web_gun" -> {
+                    snd(w, eye, SoundEvents.ENTITY_SPIDER_AMBIENT, 1.0f, 0.8f);
+                    List<LivingEntity> h = ray(w, eye, dir, 22, ParticleTypes.CLOUD, false);
+                    if (h.isEmpty()) return "мимо";
+                    LivingEntity e = h.get(0);
+                    BlockPos bp = BlockPos.ofFloored(e.getPos());
+                    if (w.getBlockState(bp).isAir()) w.setBlockState(bp, net.minecraft.block.Blocks.COBWEB.getDefaultState());
+                    e.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 100, 5));
+                    hurt(w, e, 1, 0);
+                    return "опутан";
+                }
+                case "w_sonic_blaster" -> {
+                    snd(w, eye, SoundEvents.ENTITY_WARDEN_SONIC_BOOM, 1.2f, 1.1f);
+                    List<LivingEntity> h = ray(w, eye, dir, 26, ParticleTypes.SONIC_BOOM, true);
+                    for (LivingEntity e : h) hurt(w, e, 10, 0);
+                    return "поражено: " + h.size();
+                }
+                case "w_void_rod" -> {
+                    snd(w, eye, SoundEvents.ENTITY_WITHER_SHOOT, 1.0f, 1.4f);
+                    List<LivingEntity> h = ray(w, eye, dir, 26, ParticleTypes.SCULK_SOUL, false);
+                    for (LivingEntity e : h) {
+                        e.addStatusEffect(new StatusEffectInstance(StatusEffects.WITHER, 100, 1));
+                        e.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 60, 0));
+                        hurt(w, e, 2, 0);
+                    }
+                    return h.isEmpty() ? "мимо" : "проклят";
+                }
+                case "w_heal_beacon" -> {
+                    pl.heal(10f);
+                    pl.addStatusEffect(new StatusEffectInstance(StatusEffects.ABSORPTION, 200, 1));
+                    part(w, ParticleTypes.HAPPY_VILLAGER, pl.getPos().add(0, 1.2, 0), 14, 0.5, 0.05);
+                    snd(w, pl.getPos(), SoundEvents.ENTITY_PLAYER_LEVELUP, 0.7f, 1.6f);
+                    return "вылечен";
+                }
+                case "w_haste_injector" -> {
+                    pl.addStatusEffect(new StatusEffectInstance(StatusEffects.SPEED, 240, 1));
+                    pl.addStatusEffect(new StatusEffectInstance(StatusEffects.STRENGTH, 240, 1));
+                    pl.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, 240, 0));
+                    part(w, ParticleTypes.FLAME, pl.getPos().add(0, 1, 0), 16, 0.4, 0.05);
+                    snd(w, pl.getPos(), SoundEvents.ITEM_TOTEM_USE, 0.8f, 1.5f);
+                    return "боевой режим включён";
+                }
+                case "w_smoke_bomb" -> {
+                    Vec3d p = aimPoint(w, eye, dir, 20);
+                    part(w, ParticleTypes.LARGE_SMOKE, p, 60, 1.6, 0.03);
+                    snd(w, p, SoundEvents.ENTITY_GENERIC_EXPLODE, 0.6f, 1.6f);
+                    int n = 0;
+                    for (LivingEntity e : foesAround(w, p, 6)) {
+                        e.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 100, 0));
+                        e.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 100, 2));
+                        n++;
+                    }
+                    return n > 0 ? "накрыто: " + n : null;
+                }
                 default -> {
                     snd(w, eye, SoundEvents.ENTITY_ARROW_HIT_PLAYER, 1.5f, 0.5f);
                     List<LivingEntity> h = ray(w, eye, dir, 80, ParticleTypes.CRIT, false);
@@ -284,6 +418,42 @@ public final class NeroWeaponItems {
             for (int i = 0; i < 8; i++) { double a = Math.PI * 2 * i / 8 + left * 0.1; part(s.w(), ParticleTypes.END_ROD, o.getPos().add(Math.cos(a) * 5, 1, Math.sin(a) * 5), 1, 0.02, 0); }
             for (LivingEntity e : foesAround(s.w(), o.getPos(), 6)) { Vec3d away = e.getPos().subtract(o.getPos()).normalize().multiply(0.6); e.addVelocity(away.x, 0.1, away.z); e.velocityModified = true; hurt(s.w(), e, 1, 0); }
             SHIELDS.set(SHIELDS.indexOf(s), new Shield(s.w(), s.owner(), left));
+        }
+        for (Iterator<Missile> it = MISSILES.iterator(); it.hasNext(); ) {
+            Missile m = it.next();
+            net.minecraft.entity.Entity t = m.w().getEntity(m.target());
+            Vec3d pos = new Vec3d(m.x(), m.y(), m.z());
+            if (!(t instanceof LivingEntity le) || !le.isAlive() || m.life() <= 0) {
+                part(m.w(), ParticleTypes.SMOKE, pos, 6, 0.1, 0.01);
+                it.remove();
+                continue;
+            }
+            Vec3d target = le.getPos().add(0, le.getHeight() / 2, 0);
+            Vec3d toTarget = target.subtract(pos);
+            double dist = toTarget.length();
+            part(m.w(), ParticleTypes.SMALL_FLAME, pos, 2, 0.05, 0.01);
+            if (dist < 1.4) {
+                part(m.w(), ParticleTypes.EXPLOSION, pos, 1, 0, 0);
+                snd(m.w(), pos, SoundEvents.ENTITY_GENERIC_EXPLODE, 1.3f, 1.1f);
+                for (LivingEntity e : foesAround(m.w(), pos, 3)) hurt(m.w(), e, m.dmg(), 1);
+                it.remove();
+                continue;
+            }
+            Vec3d step = toTarget.normalize().multiply(Math.min(1.1, dist));
+            MISSILES.set(MISSILES.indexOf(m), new Missile(m.w(), m.target(), pos.x + step.x, pos.y + step.y, pos.z + step.z, m.life() - 1, m.dmg()));
+        }
+        for (Iterator<Meteor> it = METEORS.iterator(); it.hasNext(); ) {
+            Meteor m = it.next();
+            int left = m.ticks() - 1;
+            double h = Math.max(0.5, left / 30.0 * 10.0);
+            part(m.w(), ParticleTypes.FLAME, m.point().add(0, h, 0), 4, 0.3, 0.02);
+            part(m.w(), ParticleTypes.LARGE_SMOKE, m.point(), 1, 0.6, 0.01);
+            if (left <= 0) {
+                part(m.w(), ParticleTypes.EXPLOSION_EMITTER, m.point(), 1, 0, 0);
+                snd(m.w(), m.point(), SoundEvents.ENTITY_GENERIC_EXPLODE, 1.8f, 0.7f);
+                for (LivingEntity e : foesAround(m.w(), m.point(), 4)) hurt(m.w(), e, m.dmg(), 1);
+                it.remove();
+            } else { METEORS.set(METEORS.indexOf(m), new Meteor(m.w(), m.point(), left, m.dmg())); }
         }
     }
 

@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "mackros:block/fx_totem_top",
+    "bottom": "mackros:block/fx_totem_side",
+    "side": "mackros:block/fx_totem_side"
+  }
+}
