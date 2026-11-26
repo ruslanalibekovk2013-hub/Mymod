@@ -51,10 +51,11 @@ public class ElevatorScreen extends Screen {
             int bx = gx + col * (CELL + GAP), by = gy + row * (CELL + GAP);
 
             String label = (cur ? ">" : "") + (idx + 1);
+            ButtonWidget.NarrationSupplier narration = b -> Text.translatable("narration.button", b.getMessage());
             ButtonWidget bw = new ButtonWidget(bx, by, CELL, CELL, Text.literal(label), b -> {
                 ElevatorClient.send(pos, fy);
                 close();
-            }, ButtonWidget.DEFAULT_NARRATION_SUPPLIER) {
+            }, narration) {
                 @Override
                 public void renderWidget(DrawContext ctx, int mx, int my, float d) {
                     int base = cur ? 0x335555FF : (open ? 0x3300AA55 : 0x33AA3333);
