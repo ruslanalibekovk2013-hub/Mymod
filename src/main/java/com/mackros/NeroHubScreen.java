@@ -63,6 +63,9 @@ public class NeroHubScreen extends Screen {
         List<Card> wr = new ArrayList<>();
         for (NeroArsenal.WR w : NeroArsenal.ALL) wr.add(gen(w.name(), w.how(), "удилище + мозг из КБ · ПКМ", "Создай " + w.name()));
         CATS.add(new Cat("Оружие-удилища (27)", 0xFFCC44, wr));
+        List<Card> mc = new ArrayList<>();
+        for (NeroMech.K x : NeroMech.ALL) mc.add(gen(x.name(), x.how(), "около 100 командных блоков", "Создай " + x.name()));
+        CATS.add(new Cat("Механизмы на КБ (25)", 0x66DDAA, mc));
         List<Card> lf = new ArrayList<>();
         lf.add(gen("Лифт на 5 этажей", "кабина, стеклянные двери, очередь, табло", "лифт · КБ", "Создай лифт на 5 этажей"));
         lf.add(gen("Роскошный лифт на 8 этажей", "стиль Luxury: золото и чёрный камень", "лифт · КБ", "Создай роскошный лифт на 8 этажей"));

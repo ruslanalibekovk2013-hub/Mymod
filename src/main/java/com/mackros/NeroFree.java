@@ -38,7 +38,7 @@ public final class NeroFree {
             "minecraft:structure_block", "minecraft:jigsaw", "minecraft:spawner", "minecraft:barrier");
     private static final Pattern PH = Pattern.compile("\\{([xyz])([+-]\\d+)?\\}|\\{id\\}|\\{tag\\}");
 
-    public static boolean has(String t, String re) { return Pattern.compile(re).matcher(t).find(); }
+    public static boolean has(String t, String re) { return Pattern.compile(re, Pattern.UNICODE_CHARACTER_CLASS).matcher(t).find(); }
 
     // ------------------------------------------------------------------ разбор блоков
     private static <T extends Comparable<T>> BlockState with(BlockState s, Property<T> p, String v) {

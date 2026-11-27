@@ -36,6 +36,7 @@ public class NeroCatalogScreen extends Screen {
         List<Item> weap = new ArrayList<>();
         for (NeroWeapons.W w : NeroWeapons.ALL) weap.add(it(w.name(), w.how(), "Создай " + w.name()));
         for (NeroArsenal.WR w : NeroArsenal.ALL) weap.add(it(w.name(), w.how(), "Создай " + w.name()));
+        for (NeroMech.K x : NeroMech.ALL) weap.add(it(x.name(), x.how(), "Создай " + x.name()));
         cats.add(new Cat("Оружие (игровое)", weap));
         List<Item> lift = new ArrayList<>();
         lift.add(it("Лифт на 5 этажей", "кабина, стеклянные двери, очередь вызовов, табло", "Создай лифт на 5 этажей"));

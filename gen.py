@@ -1,5 +1,5 @@
 import json, hashlib, zlib, struct, os, re
-ROOT = os.path.dirname(os.path.abspath(__file__)) + '/src/main/'
+ROOT = '/home/claude/m/Mackros/src/main/'
 RES = ROOT + 'resources/'
 JAVA = ROOT + 'java/com/mackros/'
 T = dict(EFFECT=0, PUSH=1, SPAWN=2, DROP=3, GEN=4, BREAK=5, GROW=6, ENV=7, STRIKE=8, BOOM=9, DMG=10,
@@ -204,71 +204,6 @@ for id, p, ru, en, x in [("flame", "flame", "Пламя", "Flame", "torch"), ("s
                          ("firework", "firework", "Фейерверк", "Firework", "firework_star"), ("happy", "happy_villager", "Радость", "Happy", "bone_meal"),
                          ("soul", "soul", "Души", "Souls", "soul_sand")]:
     add("fx_" + id, 10, "FX", "minecraft:" + p, 0, 0, 0, 0, False, "FX: " + ru, "FX: " + en, "Выпускает частицы «%s» перед гранью. Уровень = плотность." % ru, x)
-
-# ---- NEW: доп. спавнеры (20 новых существ, 1.20.4)
-NS = [("snow_golem", "Снеговик", "Snow golem", "carved_pumpkin", 600, 4),
-      ("polar_bear", "Белый медведь", "Polar bear", "powder_snow_bucket", 600, 4),
-      ("panda", "Панда", "Panda", "bamboo", 600, 4),
-      ("turtle", "Черепаха", "Turtle", "scute", 500, 6),
-      ("dolphin", "Дельфин", "Dolphin", "tropical_fish", 500, 5),
-      ("axolotl", "Аксолотль", "Axolotl", "axolotl_bucket", 500, 6),
-      ("frog", "Лягушка", "Frog", "frogspawn", 400, 8),
-      ("goat", "Коза", "Goat", "goat_horn", 500, 6),
-      ("camel", "Верблюд", "Camel", "hay_block", 700, 4),
-      ("allay", "Аллэй", "Allay", "amethyst_shard", 700, 3),
-      ("vex", "Векс", "Vex", "iron_sword", 600, 4),
-      ("phantom", "Фантом", "Phantom", "phantom_membrane", 600, 4),
-      ("ghast", "Гаст", "Ghast", "ghast_tear", 800, 3),
-      ("magma_cube", "Магмовый куб", "Magma cube", "magma_cream", 500, 6),
-      ("piglin", "Пиглин", "Piglin", "gold_ingot", 500, 5),
-      ("wither_skeleton", "Иссохший скелет", "Wither skeleton", "wither_skeleton_skull", 700, 4),
-      ("guardian", "Страж", "Guardian", "prismarine_shard", 600, 4),
-      ("shulker", "Шалкер", "Shulker", "shulker_shell", 900, 2),
-      ("ravager", "Разоритель", "Ravager", "bone", 1000, 2),
-      ("evoker", "Чаровед", "Evoker", "totem_of_undying", 900, 2)]
-for ent, ru, en, x, b, c in NS:
-    add("spawn_" + ent, 2, "SPAWN", "minecraft:" + ent, b, c, 0, 0, False, "Спавн: " + ru, "Spawn: " + en,
-        "Спавнит существо «%s» перед гранью (лимит рядом %d). Редстоун выключает. Уровень ускоряет." % (ru, c), x)
-
-# ---- NEW: доп. дропперы (6 новых ресурсов)
-NDR = [("diamond", "Алмаз", "Diamond", 1, 260), ("emerald", "Изумруд", "Emerald", 1, 220),
-       ("ender_pearl", "Жемчуг Края", "Ender pearl", 1, 200), ("honeycomb", "Соты", "Honeycomb", 1, 140),
-       ("quartz", "Кварц", "Quartz", 2, 110), ("lapis_lazuli", "Лазурит", "Lapis lazuli", 2, 110)]
-for it, ru, en, b, c in NDR:
-    add("drop_" + it, 3, "DROP", "minecraft:" + it, b, c, 0, 0, False, "Дроп: " + ru, "Drop: " + en,
-        "Выбрасывает %d× «%s» перед гранью. Редстоун выключает. Уровень ускоряет." % (b, ru), it)
-
-# ---- NEW: доп. генераторы блоков (4 новых)
-NG = [("deepslate", "deepslate", "Глубинный сланец", "Deepslate", 40),
-      ("blackstone", "blackstone", "Чёрный камень", "Blackstone", 40),
-      ("soul_sand", "soul_sand", "Песок душ", "Soul sand", 35),
-      ("honey", "honey_block", "Мёд", "Honey", 90)]
-for id, blk, ru, en, b in NG:
-    add("gen_" + id, 4, "GEN", "minecraft:" + blk, b, 0, 0, 0, False, "Ген: " + ru, "Gen: " + en,
-        "Создаёт «%s» в блоке перед гранью, если там пусто. Уровень ускоряет." % ru, blk)
-
-# ---- NEW: доп. FX-частицы (3 новых, атмосферные/босс-тематика)
-NFX = [("totem", "totem_of_undying", "Тотем", "Totem", "totem_of_undying"),
-       ("dragon", "dragon_breath", "Дыхание дракона", "Dragon breath", "dragon_breath"),
-       ("sonic", "sonic_boom", "Соник-удар", "Sonic boom", "echo_shard")]
-for id, p, ru, en, x in NFX:
-    add("fx_" + id, 10, "FX", "minecraft:" + p, 0, 0, 0, 0, False, "FX: " + ru, "FX: " + en,
-        "Выпускает частицы «%s» перед гранью. Уровень = плотность." % ru, x)
-
-# ---- NEW: доп. цвета ламп (4 новых, дополняет палитру)
-NL = [("pink", "Розовый", "Pink", "pink_dye"), ("lime", "Лаймовый", "Lime", "lime_dye"),
-      ("magenta", "Пурпурный", "Magenta", "magenta_dye"), ("black", "Чёрный", "Black", "black_dye")]
-for id, ru, en, x in NL:
-    add("light_" + id, 10, "LIGHT", "", 0, 0, 0, 0, False, "Свет: " + ru, "Light: " + en,
-        "Лампа с регулировкой яркости (ПКМ = уровень).", x)
-
-# ---- NEW: доп. физика/пады (3 новых)
-add("push_tornado", 1, "PUSH", "spin", 18, 9, 5, 0, False, "Торнадо", "Tornado",
-    "Мощно закручивает всё вокруг блока и немного поднимает. Сила и дальность растут с уровнем.", "feather")
-add("push_item_vortex", 1, "PUSH", "pull", 8, 12, 3, 0, False, "Магнит предметов", "Item magnet",
-    "Притягивает только предметы издалека, мощнее обычного сборщика. Сила и дальность растут с уровнем.", "chest")
-add("push_float_zone", 1, "PUSH", "dir", 2, 8, 1, 0, False, "Невесомость", "Float zone",
-    "Создаёт зону мягкой левитации для игроков (ставь вверх). Сила и дальность растут с уровнем.", "firework_rocket")
 
 # ---- sanity
 ids = [d['id'] for d in D]

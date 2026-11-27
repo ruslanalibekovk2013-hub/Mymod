@@ -22,7 +22,7 @@ public final class NeroValidator {
     }
 
     private static final Set<String> ROOT = Set.of("execute", "setblock", "fill", "clone", "tp", "teleport", "scoreboard", "tag", "effect",
-            "particle", "playsound", "title", "tellraw", "summon", "data", "schedule", "kill", "damage", "weather", "time", "gamerule", "nero", "give");
+            "particle", "playsound", "title", "tellraw", "summon", "data", "schedule", "kill", "damage", "weather", "time", "gamerule", "nero", "give", "clear");
     private static final Pattern NS = Pattern.compile("(?<![A-Za-z0-9_.#])minecraft:([a-z0-9_./]+)");
 
     private static final Set<String> DMG = Set.of("magic", "indirect_magic", "lightning_bolt", "explosion", "on_fire", "freeze", "thorns", "generic", "player_attack", "mob_attack", "arrow", "fireball");

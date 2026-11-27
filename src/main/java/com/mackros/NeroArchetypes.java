@@ -14,6 +14,8 @@ final class NeroArchetypes {
     static String detect(String t) {
         String ak0 = NeroArsenal.detect(t);
         if (ak0 != null) return ak0;
+        String mk0 = NeroMech.detect(t);
+        if (mk0 != null) return mk0;
         String mk = NeroMachines.detect(t);
         if (mk != null) return mk;
         String xk = NeroMega.detect(t);
@@ -37,6 +39,7 @@ final class NeroArchetypes {
     static String nameOf(String k) {
         if (k.startsWith("x_")) return NeroMega.name(k);
         if (k.startsWith("m_")) return NeroMachines.name(k);
+        if (k.startsWith("k_")) return NeroMech.name(k);
         if (k.startsWith("wr_")) return NeroArsenal.name(k);
         if (k.startsWith("w_")) return NeroWeapons.name(k);
         return switch (k) { case "lift" -> "лифт"; case "portalgun" -> "портальная пушка"; case "printer" -> "3D-принтер"; case "ship" -> "корабль"; case "robot" -> "робот"; case "bridge" -> "мост"; case "train" -> "поезд"; case "computer" -> "компьютер"; case "portal" -> "портал"; default -> k; };
@@ -45,6 +48,7 @@ final class NeroArchetypes {
     static String works(String k) {
         if (k.startsWith("x_")) return NeroMega.works(k);
         if (k.startsWith("m_")) return NeroMachines.works(k);
+        if (k.startsWith("k_")) return NeroMech.works(k);
         if (k.startsWith("wr_")) return NeroArsenal.works(k);
         if (k.startsWith("w_")) return NeroWeapons.works(k);
         return switch (k) {
@@ -67,6 +71,7 @@ final class NeroArchetypes {
     static JsonObject bp(String key, String t) {
         if (key.startsWith("x_")) return NeroMega.bp(key, t);
         if (key.startsWith("m_")) return NeroMachines.bp(key, t);
+        if (key.startsWith("k_")) return NeroMech.bp(key, t);
         if (key.startsWith("wr_")) return NeroArsenal.bp(key, t);
         if (key.startsWith("w_")) return NeroWeapons.bp(key, t);
         B b = new B();
